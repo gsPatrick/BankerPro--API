@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs';
 import apiRouter from './src/routes/index.js';
 import errorMiddleware from './src/middlewares/error.middleware.js';
 import { toCamelCase } from './src/utils/case-converter.js';
-import { sequelize, User, UserProfile, Plan, Scenario, ProductKnowledge, SystemPrompt } from './src/models/index.js';
+import { sequelize, User, UserProfile, Plan, Scenario, ProductKnowledge, SystemPrompt, SystemSetting } from './src/models/index.js';
 import { scenariosData } from './src/seeds/scenariosData.js';
 import { knowledgeData } from './src/seeds/knowledgeData.js';
 import { plansData } from './src/seeds/plansData.js';
@@ -138,6 +138,25 @@ async function bootDatabase() {
     } else {
       console.log(`✅ Banco de dados já contém ${userCount} usuário(s). Seed ignorado.`);
     }
+
+    // Garantir que a configuração dos Termos de Uso e LGPD exista no banco de dados para edição pelo Admin
+    await SystemSetting.findOrCreate({
+      where: { key: 'TERMS_OF_USE_TEXT' },
+      defaults: {
+        value: `TERMOS DE USO E POLÍTICA DE PRIVACIDADE (LGPD)
+
+Bem-vindo ao BankerPro! Ao criar uma conta e utilizar nossa plataforma de treinamento de vendas com Inteligência Artificial, você concorda e aceita integralmente as seguintes regras de uso de dados e termos de serviço:
+
+1. Coleta de Dados: Coletamos seu e-mail, nome e dados de progresso das simulações (incluindo gravações/transcrições de áudio e texto) exclusivamente para fins de avaliação pedagógica e geração de relatórios de feedback.
+2. LGPD: Seus dados pessoais são processados de acordo com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018). Garantimos segurança física e digital das informações. Seus dados nunca serão compartilhados com terceiros sem consentimento explícito.
+3. Propriedade Intelectual: Todo o conteúdo gerado pela IA (personas, cenários e feedbacks de avaliação) é propriedade do BankerPro.
+4. Uso Permitido: O acesso é individual e intransferível. Qualquer uso automatizado ou tentativa de scraping é proibida.
+
+Se você tiver dúvidas, entre em contato com o suporte em contato@bankerpro.com.`
+      }
+    });
+
+    console.log('✅ Configuração de Termos de Uso ativa no banco.');
   } catch (error) {
     console.error('❌ Falha ao inicializar o banco de dados:', error.message);
     process.exit(1);
