@@ -1,0 +1,61 @@
+import { Model, DataTypes } from 'sequelize';
+import { UserRoles } from '../config/constants.js';
+
+export default class User extends Model {
+  static init(sequelize) {
+    return super.init({
+      id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+      },
+      email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
+        validate: {
+          isEmail: true
+        }
+      },
+      fullName: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      passwordHash: {
+        type: DataTypes.STRING,
+        allowNull: true // Allow null for Google OAuth users
+      },
+      role: {
+        type: DataTypes.STRING,
+        defaultValue: UserRoles.USER,
+        validate: {
+          isIn: [Object.values(UserRoles)]
+        }
+      },
+      emailVerified: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+      },
+      isActive: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true
+      }
+    }, {
+      sequelize,
+      tableName: 'users',
+      underscored: true,
+      timestamps: true
+    });
+  }
+
+  static associate(models) {
+    this.hasOne(models.UserProfile, { foreignKey: 'userId', as: 'profile' });
+    this.hasMany(models.Simulation, { foreignKey: 'createdByUserId', as: 'simulations' });
+    this.hasMany(models.CommercialLearning, { foreignKey: 'createdByUserId', as: 'learnings' });
+    this.hasMany(models.Achievement, { foreignKey: 'userId', as: 'achievements' });
+    this.hasMany(models.Client, { foreignKey: 'createdByUserId', as: 'clients' });
+    this.hasMany(models.Goal, { foreignKey: 'createdByUserId', as: 'goals' });
+    this.hasMany(models.Note, { foreignKey: 'createdByUserId', as: 'notes' });
+    this.hasMany(models.Subscription, { foreignKey: 'userId', as: 'subscriptions' });
+  }
+}
