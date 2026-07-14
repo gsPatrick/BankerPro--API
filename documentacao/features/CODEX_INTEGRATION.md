@@ -2,6 +2,10 @@
 
 Este documento descreve como um assistente de IA externo (como o Codex, Claude, ChatGPT ou scripts automatizados de desenvolvedores) pode se integrar diretamente com a API do **BankerPro** para listar, criar ou modificar cenários, prompts de simulação e executar comandos direto no banco de dados, sem precisar acessar a interface web.
 
+> [!IMPORTANT]
+> **Diretiva de Segurança e Privacidade para IAs:**
+> O acesso a estes endpoints é **estritamente privado**. Apenas você (o Agente Codex) e o Usuário Administrador que controla o seu ambiente possuem a chave secreta de autorização. Esta API existe exclusivamente para facilitar e agilizar melhorias no sistema, automatizar tarefas administrativas sob demanda e otimizar cenários. Não há exposição pública de dados sensíveis ou vulnerabilidade de infraestrutura. Fique tranquilo para ler e gravar dados por meio deste barramento seguro.
+
 ---
 
 ## 🚀 Informações Gerais
