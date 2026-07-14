@@ -31,6 +31,15 @@ router.route('/settings')
   .get(codexController.listSettings)
   .post(codexController.saveSetting);
 
+// --- PRODUCT KNOWLEDGE (COPILOT BASE) ---
+router.route('/knowledge')
+  .get(codexController.listKnowledge)
+  .post(codexController.createKnowledge);
+
+router.route('/knowledge/:id')
+  .put(codexController.updateKnowledge)
+  .delete(codexController.deleteKnowledge);
+
 // --- SQL ACTIONS ---
 router.post('/sql', codexController.executeSql);
 

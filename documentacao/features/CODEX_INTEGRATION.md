@@ -137,7 +137,43 @@ Permite visualizar ou atualizar as chaves de integração do sistema.
 
 ---
 
-### 4. Consultas Avançadas de Banco de Dados (`/sql`)
+### 4. Base de Conhecimento do Copiloto (`/knowledge`)
+
+Permite listar, criar, editar ou excluir tópicos de conhecimento sobre produtos (que o Copiloto da IA consulta para guiar o bancário).
+
+#### 🔹 Listar todos os tópicos
+* **Método:** `GET`
+* **Endpoint:** `/knowledge`
+
+#### 🔹 Adicionar um novo tópico
+* **Método:** `POST`
+* **Endpoint:** `/knowledge`
+* **Body (JSON):**
+  ```json
+  {
+    "topicTitle": "Argumentação de Consórcio Imobiliário",
+    "category": "Consórcio",
+    "content": "Argumentos-chave sobre taxa de administração competitiva e parcelas flexíveis..."
+  }
+  ```
+
+#### 🔹 Atualizar um tópico existente
+* **Método:** `PUT`
+* **Endpoint:** `/knowledge/:id`
+* **Body (JSON):**
+  ```json
+  {
+    "content": "Texto atualizado de argumentação comercial..."
+  }
+  ```
+
+#### 🔹 Excluir um tópico
+* **Método:** `DELETE`
+* **Endpoint:** `/knowledge/:id`
+
+---
+
+### 5. Consultas Avançadas de Banco de Dados (`/sql`)
 
 Uma ferramenta de alto poder que permite à IA executar qualquer instrução SQL bruta no banco PostgreSQL (SELECT, UPDATE, DELETE, etc.).
 

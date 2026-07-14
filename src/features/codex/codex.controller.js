@@ -1,4 +1,4 @@
-import { sequelize, Scenario, SystemPrompt, SystemSetting } from '../../models/index.js';
+import { sequelize, Scenario, SystemPrompt, SystemSetting, ProductKnowledge } from '../../models/index.js';
 
 export const ping = (req, res) => {
   res.json({
@@ -105,6 +105,49 @@ export const executeSql = async (req, res, next) => {
     if (!sql) return res.status(400).json({ error: 'Comando SQL não informado.' });
     const [result] = await sequelize.query(sql);
     res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// --- PRODUCT KNOWLEDGE (COPILOT BASE) ---
+export const listKnowledge = async (req, res, next) => {
+  try {
+    const list = await ProductKnowledge.findAll();
+    res.json({ success: true, data: list });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createKnowledge = async (req, res, next) => {
+  try {
+    const topic = await ProductKnowledge.create(req.body);
+    res.json({ success: true, data: topic });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateKnowledge = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const target = await ProductKnowledge.findByPk(id);
+    if (!target) return res.status(404).json({ error: 'Tópico de conhecimento não encontrado.' });
+    await target.update(req.body);
+    res.json({ success: true, data: target });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteKnowledge = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const target = await ProductKnowledge.findByPk(id);
+    if (!target) return res.status(404).json({ error: 'Tópico de conhecimento não encontrado.' });
+    await target.destroy();
+    res.json({ success: true, message: 'Tópico de conhecimento removido.' });
   } catch (err) {
     next(err);
   }
