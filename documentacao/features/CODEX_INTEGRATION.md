@@ -29,7 +29,28 @@ Você pode enviar o token por dois métodos de cabeçalho:
 
 ## 🛠️ Endpoints Disponíveis
 
-### 1. Cenários de Simulação (`/scenarios`)
+### 1. Teste de Conectividade e Autenticação (`/ping`)
+
+Permite que a IA verifique se as credenciais de autenticação estão válidas e se a conexão com a API está ativa.
+
+* **Método:** `GET`
+* **Endpoint:** `/ping`
+* **Exemplo de Chamada (curl):**
+  ```bash
+  curl -H "X-Codex-Token: seu_token" https://bankerpro-bankerpro--api.wohb2u.easypanel.host/api/v1/codex/ping
+  ```
+* **Exemplo de Retorno (JSON):**
+  ```json
+  {
+    "success": true,
+    "message": "Codex Agent connected successfully.",
+    "timestamp": "2026-07-14T22:46:59.000Z"
+  }
+  ```
+
+---
+
+### 2. Cenários de Simulação (`/scenarios`)
 
 Permite que a IA adicione novos cenários ou edite os perfis de clientes de teste existentes.
 

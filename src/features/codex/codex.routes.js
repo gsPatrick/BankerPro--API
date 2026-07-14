@@ -7,6 +7,9 @@ const router = Router();
 // Todas as rotas do Codex exigem verificação do token secreto
 router.use(verifyCodexToken);
 
+// --- PING CONNECTION TEST ---
+router.get('/ping', codexController.ping);
+
 // --- SCENARIOS ---
 router.route('/scenarios')
   .get(codexController.listScenarios)

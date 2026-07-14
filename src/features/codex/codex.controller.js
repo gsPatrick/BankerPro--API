@@ -1,5 +1,13 @@
 import { sequelize, Scenario, SystemPrompt, SystemSetting } from '../../models/index.js';
 
+export const ping = (req, res) => {
+  res.json({
+    success: true,
+    message: 'Codex Agent connected successfully.',
+    timestamp: new Date().toISOString()
+  });
+};
+
 export const listScenarios = async (req, res, next) => {
   try {
     const list = await Scenario.findAll({ order: [['createdAt', 'DESC']] });
