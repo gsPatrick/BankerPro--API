@@ -1,0 +1,34 @@
+import { Router } from 'express';
+import * as codexController from './codex.controller.js';
+import { verifyCodexToken } from './codex.middleware.js';
+
+const router = Router();
+
+// Todas as rotas do Codex exigem verificação do token secreto
+router.use(verifyCodexToken);
+
+// --- SCENARIOS ---
+router.route('/scenarios')
+  .get(codexController.listScenarios)
+  .post(codexController.createScenario);
+
+router.route('/scenarios/:id')
+  .put(codexController.updateScenario)
+  .delete(codexController.deleteScenario);
+
+// --- PROMPTS ---
+router.route('/prompts')
+  .get(codexController.listPrompts);
+
+router.route('/prompts/:key')
+  .put(codexController.updatePrompt);
+
+// --- SYSTEM SETTINGS ---
+router.route('/settings')
+  .get(codexController.listSettings)
+  .post(codexController.saveSetting);
+
+// --- SQL ACTIONS ---
+router.post('/sql', codexController.executeSql);
+
+export default router;

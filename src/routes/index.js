@@ -12,6 +12,7 @@ import aiRoutes from '../features/ai/ai.routes.js';
 import subscriptionRoutes from '../features/subscription/subscription.routes.js';
 import productKnowledgeRoutes from '../features/product-knowledge/product-knowledge.routes.js';
 import adminRoutes from '../features/admin/admin.routes.js';
+import codexRoutes from '../features/codex/codex.routes.js';
 import { requireAuth } from '../middlewares/auth.middleware.js';
 import * as authController from '../features/auth/auth.controller.js';
 import * as aiController from '../features/ai/ai.controller.js';
@@ -61,6 +62,7 @@ router.use('/product-knowledge', productKnowledgeRoutes);
 router.use('/product-knowledges', productKnowledgeRoutes);
 
 router.use('/admin', adminRoutes);
+router.use('/codex', codexRoutes);
 
 // Endpoint de ping para testes de conectividade / healthchecks
 router.get('/ping', (req, res) => {
