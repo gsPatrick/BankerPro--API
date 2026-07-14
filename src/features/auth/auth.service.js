@@ -11,7 +11,12 @@ const generateToken = (userId) => {
   );
 };
 
-export const registerUser = async ({ email, password }) => {
+export const registerUser = async ({ email, password, acceptedTerms }) => {
+  // 0) Validar aceite de termos e LGPD
+  if (acceptedTerms !== true && acceptedTerms !== 'true') {
+    throw new AppError('Você precisa concordar com os Termos de Uso e Políticas de Privacidade (LGPD).', 400, 'TERMS_NOT_ACCEPTED');
+  }
+
   // 1) Verificar se o e-mail já existe
   const existingUser = await User.findOne({ where: { email } });
   if (existingUser) {
@@ -27,7 +32,8 @@ export const registerUser = async ({ email, password }) => {
     email,
     passwordHash,
     role: 'user',
-    emailVerified: true
+    emailVerified: true,
+    acceptedTermsAt: new Date()
   });
 
   // 3.5) Garantir a criação automática de UserProfile padrão de imediato

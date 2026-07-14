@@ -90,9 +90,9 @@ async function bootDatabase() {
     await sequelize.authenticate();
     console.log('✅ Conexão com o PostgreSQL estabelecida.');
 
-    // Sincronizar modelos (cria tabelas se não existirem, nunca destrói dados existentes)
+    // Sincronizar modelos (cria ou altera tabelas se necessário, nunca destrói dados existentes)
     console.log('🔄 Sincronizando modelos com o banco de dados...');
-    await sequelize.sync({ alter: false });
+    await sequelize.sync({ alter: true });
     console.log('✅ Modelos sincronizados.');
 
     // Verificar se o banco já tem dados (checando se existe ao menos 1 usuário)

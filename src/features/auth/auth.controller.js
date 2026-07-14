@@ -3,16 +3,17 @@ import catchAsync from '../../utils/catch-async.js';
 import { sendSuccess, sendCreated } from '../../utils/api-response.js';
 import AppError from '../../utils/app-error.js';
 import { Plan } from '../../models/index.js';
+import { getSettingValue } from '../../utils/settings-resolver.js';
 
 export const register = catchAsync(async (req, res, next) => {
-  const { email, password } = req.body;
+  const { email, password, acceptedTerms } = req.body;
 
   if (!email || !password) {
     return next(new AppError('E-mail e senha são obrigatórios.', 400, 'BAD_REQUEST'));
   }
 
-  const result = await authService.registerUser({ email, password });
-  return sendCreated(res, result, 'Cadastro realizado com sucesso. Um código de verificação foi enviado para seu e-mail.');
+  const result = await authService.registerUser({ email, password, acceptedTerms });
+  return sendCreated(res, result, 'Cadastro realizado com sucesso.');
 });
 
 export const verifyOtp = catchAsync(async (req, res, next) => {
@@ -70,4 +71,20 @@ export const getMe = catchAsync(async (req, res, next) => {
 export const getUsersList = catchAsync(async (req, res, next) => {
   const users = await authService.listUsersPublic();
   return sendSuccess(res, users, 'Lista pública de usuários.');
+});
+
+export const getTerms = catchAsync(async (req, res, next) => {
+  const defaultTerms = `TERMOS DE USO E POLÍTICA DE PRIVACIDADE (LGPD)
+
+Bem-vindo ao BankerPro! Ao criar uma conta e utilizar nossa plataforma de treinamento de vendas com Inteligência Artificial, você concorda e aceita integralmente as seguintes regras de uso de dados e termos de serviço:
+
+1. Coleta de Dados: Coletamos seu e-mail, nome e dados de progresso das simulações (incluindo gravações/transcrições de áudio e texto) exclusivamente para fins de avaliação pedagógica e geração de relatórios de feedback.
+2. LGPD: Seus dados pessoais são processados de acordo com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018). Garantimos segurança física e digital das informações. Seus dados nunca serão compartilhados com terceiros sem consentimento explícito.
+3. Propriedade Intelectual: Todo o conteúdo gerado pela IA (personas, cenários e feedbacks de avaliação) é propriedade do BankerPro.
+4. Uso Permitido: O acesso é individual e intransferível. Qualquer uso automatizado ou tentativa de scraping é proibida.
+
+Se você tiver dúvidas, entre em contato com o suporte em contato@bankerpro.com.`;
+
+  const termsText = await getSettingValue('TERMS_OF_USE_TEXT') || defaultTerms;
+  return sendSuccess(res, { terms: termsText }, 'Termos de uso e LGPD obtidos com sucesso.');
 });

@@ -39,6 +39,10 @@ export default class User extends Model {
       isActive: {
         type: DataTypes.BOOLEAN,
         defaultValue: true
+      },
+      acceptedTermsAt: {
+        type: DataTypes.DATE,
+        allowNull: true
       }
     }, {
       sequelize,
