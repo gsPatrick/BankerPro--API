@@ -8,6 +8,7 @@ import * as adminPlansController from './controllers/admin-plans.controller.js';
 import * as adminKnowledgeController from './controllers/admin-knowledge.controller.js';
 import * as adminUsersController from './controllers/admin-users.controller.js';
 import * as adminSettingsController from './controllers/admin-settings.controller.js';
+import * as adminAgentController from './controllers/admin-agent.controller.js';
 
 const router = Router();
 
@@ -64,5 +65,8 @@ router.route('/users/:id')
 router.put('/users/:id/role', adminUsersController.updateUserRole);
 router.put('/users/:id/status', adminUsersController.updateUserStatus);
 router.post('/users/:id/subscription', adminUsersController.manualSubscription);
+
+// --- AI AGENT RUNNER ---
+router.post('/ai-agent/run', adminAgentController.runAgentCommand);
 
 export default router;
