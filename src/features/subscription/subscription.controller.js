@@ -25,7 +25,8 @@ export const checkout = catchAsync(async (req, res, next) => {
 });
 
 export const webhook = catchAsync(async (req, res, next) => {
-  const result = await subscriptionService.handlePaymentWebhook(req.body);
+  const payload = { ...req.body, ...req.query };
+  const result = await subscriptionService.handlePaymentWebhook(payload);
   return sendSuccess(res, result, 'Webhook recebido.');
 });
 

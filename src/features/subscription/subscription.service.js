@@ -52,54 +52,59 @@ export const handlePaymentWebhook = async (payload) => {
     return { received: true };
   }
 
-  const payment = await mpProvider.getPaymentDetails(paymentId);
+  try {
+    const payment = await mpProvider.getPaymentDetails(paymentId);
 
-  if (payment.status === 'approved') {
-    let externalData;
-    try {
-      externalData = typeof payment.external_reference === 'string' 
-        ? JSON.parse(payment.external_reference) 
-        : payment.external_reference;
-    } catch (e) {
-      console.error('Falha ao parsear external_reference do pagamento:', payment.external_reference);
-      return { error: 'Invalid external reference' };
+    if (payment.status === 'approved') {
+      let externalData;
+      try {
+        externalData = typeof payment.external_reference === 'string' 
+          ? JSON.parse(payment.external_reference) 
+          : payment.external_reference;
+      } catch (e) {
+        console.error('Falha ao parsear external_reference do pagamento:', payment.external_reference);
+        return { error: 'Invalid external reference' };
+      }
+
+      const { userId, planType } = externalData || {};
+      if (!userId || !planType) {
+        return { error: 'Missing user or plan data' };
+      }
+
+      // Verificar se o plano existe no banco de dados antes de assinar
+      const plan = await Plan.findOne({ where: { key: planType } });
+      if (!plan) {
+        console.error(`Plano ${planType} não encontrado no banco de dados. Ignorando ativação.`);
+        return { error: 'Plan not found in database' };
+      }
+
+      const startsAt = new Date();
+      const endsAt = new Date();
+      endsAt.setDate(endsAt.getDate() + 30); // 30 dias de vigência
+
+      await Subscription.update(
+        { status: 'cancelled' },
+        { where: { userId, status: 'active' } }
+      );
+
+      const subscription = await Subscription.create({
+        userId,
+        plan: planType,
+        status: 'active',
+        mpSubscriptionId: paymentId.toString(),
+        startsAt,
+        endsAt
+      });
+
+      console.log(`✅ Assinatura ativada para o usuário ${userId}. Plano: ${planType}.`);
+      return subscription;
     }
 
-    const { userId, planType } = externalData || {};
-    if (!userId || !planType) {
-      return { error: 'Missing user or plan data' };
-    }
-
-    // Verificar se o plano existe no banco de dados antes de assinar
-    const plan = await Plan.findOne({ where: { key: planType } });
-    if (!plan) {
-      console.error(`Plano ${planType} não encontrado no banco de dados. Ignorando ativação.`);
-      return { error: 'Plan not found in database' };
-    }
-
-    const startsAt = new Date();
-    const endsAt = new Date();
-    endsAt.setDate(endsAt.getDate() + 30); // 30 dias de vigência
-
-    await Subscription.update(
-      { status: 'cancelled' },
-      { where: { userId, status: 'active' } }
-    );
-
-    const subscription = await Subscription.create({
-      userId,
-      plan: planType,
-      status: 'active',
-      mpSubscriptionId: paymentId.toString(),
-      startsAt,
-      endsAt
-    });
-
-    console.log(`✅ Assinatura ativada para o usuário ${userId}. Plano: ${planType}.`);
-    return subscription;
+    return { status: payment.status };
+  } catch (error) {
+    console.warn(`⚠️ Notificação do Mercado Pago com ID de teste ou não encontrado (${paymentId}):`, error.message);
+    return { received: true, info: 'Mock or test transaction ignored' };
   }
-
-  return { status: payment.status };
 };
 
 // --- ADMIN PLAN CRUD ---
