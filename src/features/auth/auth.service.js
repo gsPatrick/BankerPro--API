@@ -22,34 +22,39 @@ export const registerUser = async ({ email, password }) => {
   const salt = await bcrypt.genSalt(10);
   const passwordHash = await bcrypt.hash(password, salt);
 
-  // 3) Criar usuário
+  // 3) Criar usuário (Auto-verificado temporariamente)
   const user = await User.create({
     email,
     passwordHash,
     role: 'user',
-    emailVerified: false
+    emailVerified: true
   });
 
-  // 4) Gerar OTP de 6 dígitos
-  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = new Date(Date.now() + 10 * 60000); // 10 minutos
-
-  await EmailOtp.create({
-    email,
-    otpCode,
-    expiresAt,
-    used: false
+  // 3.5) Garantir a criação automática de UserProfile padrão de imediato
+  await UserProfile.findOrCreate({
+    where: { userId: user.id },
+    defaults: {
+      roleTitle: 'Assistente Comercial',
+      experienceLevel: 'Iniciante',
+      bankName: 'Banco do Brasil',
+      weeklyGoal: 5,
+      weeklyCompleted: 0,
+      totalSimulations: 0,
+      averageScore: 0.0,
+      bestScore: 0.0,
+      streakDays: 0,
+      experiencePoints: 0,
+      lastSimulationDate: null
+    }
   });
 
-  // LOG de desenvolvimento do OTP
-  console.log(`\n=================================================`);
-  console.log(`📧 [DEV OTP] Código de verificação para ${email}: ${otpCode}`);
-  console.log(`=================================================\n`);
+  const accessToken = generateToken(user.id);
 
   return {
     id: user.id,
     email: user.email,
-    role: user.role
+    role: user.role,
+    accessToken
   };
 };
 
