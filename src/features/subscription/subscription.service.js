@@ -27,7 +27,7 @@ export const getSubscriptionByUserId = async (userId) => {
   return sub;
 };
 
-export const checkoutSubscription = async (userId, planType) => {
+export const checkoutSubscription = async (userId, planType, paymentMethod = null, cardToken = null, docNumber = null, docType = 'CPF') => {
   const plan = await Plan.findOne({ where: { key: planType } });
   if (!plan) {
     throw new AppError('Plano inválido para checkout.', 404, 'PLAN_NOT_FOUND');
@@ -42,8 +42,51 @@ export const checkoutSubscription = async (userId, planType) => {
     throw new AppError('Usuário não encontrado.', 404, 'USER_NOT_FOUND');
   }
 
-  const preference = await mpProvider.createCheckoutPreference(userId, user.email, planType, parseFloat(plan.price));
-  return preference;
+  // Se o método de pagamento não foi informado, utiliza o Checkout Pro (Redirecionamento) como fallback
+  if (!paymentMethod) {
+    const preference = await mpProvider.createCheckoutPreference(userId, user.email, planType, parseFloat(plan.price));
+    return preference;
+  }
+
+  if (paymentMethod === 'credit_card') {
+    if (!cardToken) {
+      throw new AppError('Token do cartão de crédito (cardToken) é obrigatório.', 400, 'BAD_REQUEST');
+    }
+    const preapproval = await mpProvider.createPreapproval(userId, user.email, planType, parseFloat(plan.price), cardToken);
+    
+    // Se a assinatura de recorrência foi autorizada imediatamente, ativa no banco
+    if (preapproval.status === 'authorized' || preapproval.status === 'active') {
+      const startsAt = new Date();
+      const endsAt = new Date();
+      endsAt.setDate(endsAt.getDate() + 30); // 30 dias de vigência
+
+      await Subscription.update(
+        { status: 'cancelled' },
+        { where: { userId, status: 'active' } }
+      );
+
+      await Subscription.create({
+        userId,
+        plan: planType,
+        status: 'active',
+        mpSubscriptionId: preapproval.id.toString(),
+        startsAt,
+        endsAt
+      });
+    }
+
+    return preapproval;
+  }
+
+  if (paymentMethod === 'pix') {
+    if (!docNumber) {
+      throw new AppError('CPF/CNPJ do pagador (docNumber) é obrigatório para pagamento via PIX.', 400, 'BAD_REQUEST');
+    }
+    const payment = await mpProvider.createPixPayment(userId, user.email, planType, parseFloat(plan.price), docNumber, docType);
+    return payment;
+  }
+
+  throw new AppError('Método de pagamento não suportado.', 400, 'BAD_REQUEST');
 };
 
 export const handlePaymentWebhook = async (payload) => {

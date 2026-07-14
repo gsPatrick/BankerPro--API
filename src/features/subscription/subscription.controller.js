@@ -14,14 +14,21 @@ export const getCurrentSubscription = catchAsync(async (req, res, next) => {
 });
 
 export const checkout = catchAsync(async (req, res, next) => {
-  const { planType } = req.body;
+  const { planType, paymentMethod, cardToken, docNumber, docType } = req.body;
 
   if (!planType) {
     return next(new AppError('Tipo do plano (planType) é obrigatório.', 400, 'BAD_REQUEST'));
   }
 
-  const preference = await subscriptionService.checkoutSubscription(req.user.id, planType);
-  return sendSuccess(res, preference, 'Checkout criado com sucesso.');
+  const result = await subscriptionService.checkoutSubscription(
+    req.user.id,
+    planType,
+    paymentMethod,
+    cardToken,
+    docNumber,
+    docType
+  );
+  return sendSuccess(res, result, 'Checkout processado com sucesso.');
 });
 
 export const webhook = catchAsync(async (req, res, next) => {
