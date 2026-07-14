@@ -14,7 +14,25 @@ const PORT = process.env.PORT || 3001;
 const API_PREFIX = process.env.APP_API_PREFIX || '/api/v1';
 
 // Middlewares Globais
-app.use(cors());
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://bankerpro-bankerpro--front.wohb2u.easypanel.host'
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || origin.endsWith('.easypanel.host')) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Fallback para permitir outras origens em desenvolvimento
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // Converter chaves de req.body, req.query, req.params de snake_case para camelCase
