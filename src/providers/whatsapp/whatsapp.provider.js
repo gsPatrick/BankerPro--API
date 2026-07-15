@@ -70,7 +70,8 @@ export const createInstance = async () => {
       body: JSON.stringify({
         instanceName: 'copilot',
         token: 'copilot_secure_token_123',
-        qrcode: true
+        qrcode: true,
+        integration: 'WHATSAPP-BAILEYS'
       })
     });
 
