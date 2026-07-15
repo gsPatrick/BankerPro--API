@@ -79,9 +79,14 @@ const updateWhatsapp = async (User, userId, whatsapp, Op) => {
 };
 
 export const updateProfile = async (userId, data) => {
-  const profile = await UserProfile.findOne({ where: { userId } });
+  let profile = await UserProfile.findOne({ where: { userId } });
   if (!profile) {
-    throw new AppError('Perfil não encontrado para o usuário.', 404, 'PROFILE_NOT_FOUND');
+    profile = await UserProfile.create({
+      userId,
+      onboardingCompleted: false,
+      xpPoints: 0,
+      streakDays: 0
+    });
   }
 
   const User = profile.sequelize.models.User;

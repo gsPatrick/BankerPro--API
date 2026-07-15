@@ -43,14 +43,24 @@ export default class UserProfile extends Model {
         type: DataTypes.STRING,
         allowNull: true,
         validate: {
-          isIn: [Object.values(WorkSituations)]
+          isValidWorkSituation(value) {
+            if (value === null || value === undefined) return;
+            if (!Object.values(WorkSituations).includes(value)) {
+              throw new Error('Situação atual inválida.');
+            }
+          }
         }
       },
       certification: {
         type: DataTypes.STRING,
         allowNull: true,
         validate: {
-          isIn: [CertificationOptions]
+          isValidCertification(value) {
+            if (value === null || value === undefined) return;
+            if (!CertificationOptions.includes(value)) {
+              throw new Error('Certificação inválida.');
+            }
+          }
         }
       },
       certificationOther: {
