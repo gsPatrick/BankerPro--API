@@ -28,6 +28,19 @@ export const ExperienceLevels = [
   'Especialista'
 ];
 
+export const WorkSituations = {
+  EMPLOYED: 'employed',
+  STUDYING: 'studying'
+};
+
+export const CertificationOptions = [
+  'C-Pro',
+  'C-Pro R',
+  'C-Pro I',
+  'Ainda não comecei uma certificação',
+  'Outra'
+];
+
 export const ClientStatus = [
   'Novo',
   'Em negociação',

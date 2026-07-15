@@ -38,21 +38,22 @@ export const registerUser = async ({ email, password, acceptedTerms, fullName, w
     whatsapp
   });
 
-  // 3.5) Garantir a criação automática de UserProfile padrão de imediato
+  // 3.5) Perfil base — onboarding preenche os dados reais depois
   await UserProfile.findOrCreate({
     where: { userId: user.id },
     defaults: {
-      roleTitle: 'Assistente Comercial',
+      roleTitle: 'Não informado',
       experienceLevel: 'Iniciante',
-      bankName: 'Banco do Brasil',
+      bankName: null,
+      onboardingCompleted: false,
       weeklyGoal: 5,
       weeklyCompleted: 0,
       totalSimulations: 0,
       averageScore: 0.0,
       bestScore: 0.0,
       streakDays: 0,
-      experiencePoints: 0,
-      lastSimulationDate: null
+      xpPoints: 0,
+      lastActiveDate: null
     }
   });
 
@@ -61,7 +62,9 @@ export const registerUser = async ({ email, password, acceptedTerms, fullName, w
   return {
     id: user.id,
     email: user.email,
+    fullName: user.fullName,
     role: user.role,
+    onboardingCompleted: false,
     accessToken
   };
 };
@@ -98,13 +101,14 @@ export const verifyUserOtp = async ({ email, otpCode }) => {
   user.emailVerified = true;
   await user.save();
 
-  // 3.5) Garantir a criação automática de UserProfile padrão para o novo usuário
+  // 3.5) Perfil base — onboarding preenche os dados reais depois
   await UserProfile.findOrCreate({
     where: { userId: user.id },
     defaults: {
-      roleTitle: 'Assistente Comercial',
+      roleTitle: 'Não informado',
       experienceLevel: 'Iniciante',
-      bankName: 'Banco do Brasil',
+      bankName: null,
+      onboardingCompleted: false,
       weeklyGoal: 5,
       weeklyCompleted: 0,
       totalSimulations: 0,
@@ -115,6 +119,8 @@ export const verifyUserOtp = async ({ email, otpCode }) => {
     }
   });
 
+  const profile = await UserProfile.findOne({ where: { userId: user.id } });
+
   // 4) Gerar JWT
   const token = generateToken(user.id);
 
@@ -124,7 +130,9 @@ export const verifyUserOtp = async ({ email, otpCode }) => {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
-      role: user.role
+      role: user.role,
+      onboardingCompleted: Boolean(profile?.onboardingCompleted),
+      avatarUrl: profile?.avatarUrl || null
     }
   };
 };
@@ -179,8 +187,9 @@ export const loginUser = async ({ email, password }) => {
     throw new AppError('Seu e-mail ainda não foi verificado. Por favor, insira o código OTP enviado.', 403, 'EMAIL_NOT_VERIFIED');
   }
 
-  // 4) Gerar token
+  // 4) Gerar token + status de onboarding
   const token = generateToken(user.id);
+  const profile = await UserProfile.findOne({ where: { userId: user.id } });
 
   return {
     access_token: token,
@@ -188,7 +197,10 @@ export const loginUser = async ({ email, password }) => {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
-      role: user.role
+      role: user.role,
+      whatsapp: user.whatsapp,
+      onboardingCompleted: Boolean(profile?.onboardingCompleted),
+      avatarUrl: profile?.avatarUrl || null
     }
   };
 };

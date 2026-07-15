@@ -1,5 +1,9 @@
 import { Model, DataTypes } from 'sequelize';
-import { ExperienceLevels } from '../config/constants.js';
+import {
+  ExperienceLevels,
+  WorkSituations,
+  CertificationOptions
+} from '../config/constants.js';
 
 export default class UserProfile extends Model {
   static init(sequelize) {
@@ -21,7 +25,8 @@ export default class UserProfile extends Model {
       },
       roleTitle: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true,
+        defaultValue: 'Não informado'
       },
       experienceLevel: {
         type: DataTypes.STRING,
@@ -32,6 +37,37 @@ export default class UserProfile extends Model {
       },
       bankName: {
         type: DataTypes.STRING,
+        allowNull: true
+      },
+      workSituation: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        validate: {
+          isIn: [Object.values(WorkSituations)]
+        }
+      },
+      certification: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        validate: {
+          isIn: [CertificationOptions]
+        }
+      },
+      certificationOther: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      avatarUrl: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
+      onboardingCompleted: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+      },
+      onboardingCompletedAt: {
+        type: DataTypes.DATE,
         allowNull: true
       },
       weeklyGoal: {

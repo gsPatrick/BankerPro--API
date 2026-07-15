@@ -4,8 +4,8 @@ import { sendSuccess, sendCreated } from '../../utils/api-response.js';
 import AppError from '../../utils/app-error.js';
 
 export const getProfile = catchAsync(async (req, res, next) => {
-  const isPlural = req.baseUrl.endsWith('profiles') || 
-                   req.baseUrl.endsWith('user-profiles') || 
+  const isPlural = req.baseUrl.endsWith('profiles') ||
+                   req.baseUrl.endsWith('user-profiles') ||
                    Object.keys(req.query).length > 0;
 
   if (isPlural) {
@@ -32,13 +32,19 @@ export const createProfile = catchAsync(async (req, res, next) => {
     roleTitle,
     experienceLevel,
     bankName,
-    weeklyGoal
+    weeklyGoal,
+    onboardingCompleted: false
   });
 
   return sendCreated(res, profile, 'Perfil criado com sucesso.');
 });
 
-export const updateProfile = catchAsync(async (req, res, next) => {
+export const updateProfile = catchAsync(async (req, res) => {
   const profile = await profileService.updateProfile(req.user.id, req.body);
   return sendSuccess(res, profile, 'Perfil atualizado com sucesso.');
+});
+
+export const completeOnboarding = catchAsync(async (req, res) => {
+  const profile = await profileService.completeOnboarding(req.user.id, req.body);
+  return sendSuccess(res, profile, 'Onboarding concluído com sucesso.');
 });

@@ -8,6 +8,7 @@ router.use(requireAuth);
 
 router.get('/', profileController.getProfile);
 router.post('/', profileController.createProfile);
+router.post('/onboarding', profileController.completeOnboarding);
 router.put('/', profileController.updateProfile);
 router.put('/:id', profileController.updateProfile);
 
