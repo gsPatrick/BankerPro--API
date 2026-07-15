@@ -145,14 +145,29 @@ async function bootDatabase() {
       defaults: {
         value: `TERMOS DE USO E POLÍTICA DE PRIVACIDADE (LGPD)
 
-Bem-vindo ao BankerPro! Ao criar uma conta e utilizar nossa plataforma de treinamento de vendas com Inteligência Artificial, você concorda e aceita integralmente as seguintes regras de uso de dados e termos de serviço:
+1. Proteção de dados e LGPD
+Você deve utilizar a plataforma respeitando a Lei Geral de Proteção de Dados Pessoais. Não insira dados pessoais reais de clientes sem autorização, necessidade legítima e finalidade adequada. Sempre que possível, utilize dados fictícios, anonimizados ou resumidos.
 
-1. Coleta de Dados: Coletamos seu e-mail, nome e dados de progresso das simulações (incluindo gravações/transcrições de áudio e texto) exclusivamente para fins de avaliação pedagógica e geração de relatórios de feedback.
-2. LGPD: Seus dados pessoais são processados de acordo com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018). Garantimos segurança física e digital das informações. Seus dados nunca serão compartilhados com terceiros sem consentimento explícito.
-3. Propriedade Intelectual: Todo o conteúdo gerado pela IA (personas, cenários e feedbacks de avaliação) é propriedade do BankerPro.
-4. Uso Permitido: O acesso é individual e intransferível. Qualquer uso automatizado ou tentativa de scraping é proibida.
+2. Dados sensíveis e sigilosos
+É proibido inserir senhas, documentos completos, dados bancários completos, informações médicas, dados sensíveis, prints de sistemas internos, dados de conta, score interno, propostas confidenciais ou qualquer informação protegida por sigilo bancário/comercial.
 
-Se você tiver dúvidas, entre em contato com o suporte em contato@bankerpro.com.`
+3. Uso da inteligência artificial
+As respostas da IA são sugestões de treinamento e apoio comercial. O usuário deve revisar, adaptar e validar qualquer abordagem antes de usar com clientes reais. A IA pode cometer erros e não deve ser tratada como decisão final.
+
+4. Produtos financeiros permitidos na plataforma
+A plataforma foi criada para apoiar negociações de produtos bancários como consórcio, seguro de vida, capitalização, cartão de crédito, empréstimo pessoal, consignado e relacionamento bancário. A plataforma não deve ser usada para recomendação de investimentos, promessa de rentabilidade, promessa de aprovação de crédito ou garantia de contemplação.
+
+5. Conduta comercial responsável
+O usuário deve agir com transparência, ética e responsabilidade. É proibido prometer crédito futuro, aprovação garantida, aumento de score, contemplação em consórcio, rentabilidade, vantagem inexistente ou qualquer condição que dependa de análise da instituição financeira.
+
+6. Adequação ao perfil do cliente
+Toda abordagem comercial deve considerar o perfil, renda, momento financeiro, capacidade de pagamento, objetivo e necessidade do cliente. O usuário não deve empurrar produtos inadequados, gerar endividamento irresponsável ou omitir informações relevantes.
+
+7. Normas internas e regulatórias
+O usuário é responsável por respeitar as normas da instituição onde atua, políticas internas, regras de compliance, LGPD, sigilo bancário, Código de Defesa do Consumidor e boas práticas do mercado financeiro, incluindo diretrizes aplicáveis de entidades como FEBRABAN, ANBIMA e órgãos reguladores quando cabível.
+
+8. Responsabilidade pelo uso
+O BankerPro é uma ferramenta de apoio. A responsabilidade pelo atendimento, oferta, comunicação, registro e fechamento comercial é do usuário e/ou da instituição responsável pela operação.`
       }
     });
 
