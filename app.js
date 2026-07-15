@@ -6,11 +6,22 @@ import bcrypt from 'bcryptjs';
 import apiRouter from './src/routes/index.js';
 import errorMiddleware from './src/middlewares/error.middleware.js';
 import { toCamelCase } from './src/utils/case-converter.js';
-import { sequelize, User, UserProfile, Plan, Scenario, ProductKnowledge, SystemPrompt, SystemSetting } from './src/models/index.js';
+import {
+  sequelize,
+  User,
+  UserProfile,
+  Plan,
+  Scenario,
+  ProductKnowledge,
+  SystemPrompt,
+  SystemSetting,
+  CommercialOpportunity,
+} from './src/models/index.js';
 import { scenariosData } from './src/seeds/scenariosData.js';
 import { knowledgeData } from './src/seeds/knowledgeData.js';
 import { plansData } from './src/seeds/plansData.js';
 import { promptsData } from './src/seeds/promptsData.js';
+import { opportunitiesData } from './src/seeds/opportunitiesData.js';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -134,9 +145,22 @@ async function bootDatabase() {
       await SystemPrompt.bulkCreate(promptsData);
       console.log(`  ✅ ${promptsData.length} prompts criados`);
 
+      // Oportunidades comerciais
+      await CommercialOpportunity.bulkCreate(opportunitiesData);
+      console.log(`  ✅ ${opportunitiesData.length} oportunidades comerciais criadas`);
+
       console.log('🎉 Seed inicial concluído com sucesso!');
     } else {
       console.log(`✅ Banco de dados já contém ${userCount} usuário(s). Seed ignorado.`);
+    }
+
+    // Garantir seed de oportunidades em bases já existentes
+    const opportunityCount = await CommercialOpportunity.count();
+    if (opportunityCount === 0) {
+      await CommercialOpportunity.bulkCreate(opportunitiesData);
+      console.log(
+        `🌱 ${opportunitiesData.length} oportunidade(s) comercial(is) semeada(s).`
+      );
     }
 
     // Garantir que a configuração dos Termos de Uso e LGPD exista no banco de dados para edição pelo Admin

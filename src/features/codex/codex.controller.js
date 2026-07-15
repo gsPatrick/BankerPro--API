@@ -1,6 +1,7 @@
 import { sequelize, Scenario, SystemPrompt, SystemSetting, ProductKnowledge } from '../../models/index.js';
 import * as whatsappService from '../whatsapp/whatsapp.service.js';
 import * as adminSettingsService from '../admin/services/admin-settings.service.js';
+import * as opportunityService from '../commercial-opportunity/commercial-opportunity.service.js';
 
 export const ping = (req, res) => {
   res.json({
@@ -150,6 +151,54 @@ export const deleteKnowledge = async (req, res, next) => {
     if (!target) return res.status(404).json({ error: 'Tópico de conhecimento não encontrado.' });
     await target.destroy();
     res.json({ success: true, message: 'Tópico de conhecimento removido.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// --- COMMERCIAL OPPORTUNITIES ---
+export const listOpportunities = async (req, res, next) => {
+  try {
+    const { product, channel, tag, status, search } = req.query;
+    const list = await opportunityService.listOpportunities({
+      product,
+      channel,
+      tag,
+      status,
+      search,
+      includeInactive: true,
+    });
+    res.json({ success: true, data: list });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createOpportunity = async (req, res, next) => {
+  try {
+    const opportunity = await opportunityService.createOpportunity(req.body);
+    res.json({ success: true, data: opportunity });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateOpportunity = async (req, res, next) => {
+  try {
+    const opportunity = await opportunityService.updateOpportunity(
+      req.params.id,
+      req.body
+    );
+    res.json({ success: true, data: opportunity });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteOpportunity = async (req, res, next) => {
+  try {
+    await opportunityService.deleteOpportunity(req.params.id);
+    res.json({ success: true, message: 'Oportunidade comercial removida.' });
   } catch (err) {
     next(err);
   }

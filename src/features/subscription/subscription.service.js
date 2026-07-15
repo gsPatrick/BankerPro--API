@@ -19,6 +19,30 @@ export const getSubscriptionByUserId = async (userId) => {
   return sub || null;
 };
 
+export const listSubscriptionHistory = async (userId) => {
+  const rows = await Subscription.findAll({
+    where: { userId },
+    order: [['created_at', 'DESC']]
+  });
+
+  return rows.map((row) => {
+    const item = row.toJSON();
+    const method = item.paymentMethod
+      || (item.plan === 'free' || !item.mpSubscriptionId ? 'free' : null);
+
+    return {
+      id: item.id,
+      plan: item.plan,
+      status: item.status,
+      paymentMethod: method,
+      mpSubscriptionId: item.mpSubscriptionId || null,
+      startsAt: item.startsAt,
+      endsAt: item.endsAt,
+      createdAt: item.createdAt || item.created_at
+    };
+  });
+};
+
 export const activateFreePlan = async (userId, planType = 'free') => {
   const plan = await Plan.findOne({ where: { key: planType } });
   if (!plan) {
@@ -38,6 +62,7 @@ export const activateFreePlan = async (userId, planType = 'free') => {
     userId,
     plan: planType,
     status: 'active',
+    paymentMethod: 'free',
     startsAt: new Date(),
     endsAt: null
   });
@@ -97,6 +122,7 @@ export const checkoutSubscription = async (userId, planType, paymentMethod = nul
         plan: planType,
         status: 'active',
         mpSubscriptionId: preapproval.id.toString(),
+        paymentMethod: 'credit_card',
         startsAt,
         endsAt
       });
@@ -186,6 +212,11 @@ export const activateSubscriptionFromApprovedPayment = async (payment) => {
     plan: planType,
     status: 'active',
     mpSubscriptionId: payment.id.toString(),
+    paymentMethod: payment.payment_type_id === 'credit_card' || payment.payment_method_id?.includes('card')
+      ? 'credit_card'
+      : (payment.payment_type_id === 'bank_transfer' || payment.payment_method_id === 'pix'
+        ? 'pix'
+        : (payment.payment_method_id || 'pix')),
     startsAt,
     endsAt
   });

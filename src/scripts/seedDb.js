@@ -2,11 +2,21 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import bcrypt from 'bcryptjs';
-import { sequelize, Scenario, ProductKnowledge, Plan, SystemPrompt, User, UserProfile } from '../models/index.js';
+import {
+  sequelize,
+  Scenario,
+  ProductKnowledge,
+  Plan,
+  SystemPrompt,
+  User,
+  UserProfile,
+  CommercialOpportunity,
+} from '../models/index.js';
 import { scenariosData } from '../seeds/scenariosData.js';
 import { knowledgeData } from '../seeds/knowledgeData.js';
 import { plansData } from '../seeds/plansData.js';
 import { promptsData } from '../seeds/promptsData.js';
+import { opportunitiesData } from '../seeds/opportunitiesData.js';
 
 async function seedDatabase() {
   console.log('🌱 Iniciando o semeio (seeding) do banco de dados BankerPro...');
@@ -23,6 +33,7 @@ async function seedDatabase() {
     await ProductKnowledge.destroy({ where: {}, cascade: true });
     await Plan.destroy({ where: {}, cascade: true });
     await SystemPrompt.destroy({ where: {}, cascade: true });
+    await CommercialOpportunity.destroy({ where: {}, cascade: true });
     await User.destroy({ where: {}, cascade: true });
     console.log('✅ Tabelas limpas.');
 
@@ -64,6 +75,10 @@ async function seedDatabase() {
     console.log('📥 Semeando prompts padrões do sistema (SystemPrompts)...');
     const createdPrompts = await SystemPrompt.bulkCreate(promptsData);
     console.log(`✅ ${createdPrompts.length} prompts padrões foram criados.`);
+
+    console.log('📥 Semeando oportunidades comerciais...');
+    const createdOpportunities = await CommercialOpportunity.bulkCreate(opportunitiesData);
+    console.log(`✅ ${createdOpportunities.length} oportunidades foram criadas.`);
 
     console.log('🎉 Semeio concluído com sucesso!');
     process.exit(0);

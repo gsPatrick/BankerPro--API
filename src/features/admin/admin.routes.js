@@ -6,6 +6,7 @@ import * as adminPromptsController from './controllers/admin-prompts.controller.
 import * as adminScenariosController from './controllers/admin-scenarios.controller.js';
 import * as adminPlansController from './controllers/admin-plans.controller.js';
 import * as adminKnowledgeController from './controllers/admin-knowledge.controller.js';
+import * as adminOpportunitiesController from './controllers/admin-opportunities.controller.js';
 import * as adminUsersController from './controllers/admin-users.controller.js';
 import * as adminSettingsController from './controllers/admin-settings.controller.js';
 import * as adminAgentController from './controllers/admin-agent.controller.js';
@@ -30,7 +31,17 @@ router.route('/knowledge')
   .post(adminKnowledgeController.createKnowledge);
 
 router.route('/knowledge/:id')
+  .put(adminKnowledgeController.updateKnowledge)
   .delete(adminKnowledgeController.deleteKnowledge);
+
+// --- COMMERCIAL OPPORTUNITIES ---
+router.route('/opportunities')
+  .get(adminOpportunitiesController.getOpportunities)
+  .post(adminOpportunitiesController.createOpportunity);
+
+router.route('/opportunities/:id')
+  .put(adminOpportunitiesController.updateOpportunity)
+  .delete(adminOpportunitiesController.deleteOpportunity);
 
 // --- PROMPTS MANAGEMENT ---
 router.route('/prompts')

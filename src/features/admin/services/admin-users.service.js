@@ -3,17 +3,29 @@ import AppError from '../../../utils/app-error.js';
 
 export const listUsers = async () => {
   return await User.findAll({
-    attributes: { exclude: ['password'] },
+    attributes: { exclude: ['password', 'passwordHash'] },
     include: [
       { model: UserProfile, as: 'profile' },
       {
         model: Subscription,
         as: 'subscriptions',
-        where: { status: 'active' },
-        required: false
-      }
+        required: false,
+        separate: true,
+        order: [
+          ['created_at', 'DESC'],
+          ['starts_at', 'DESC'],
+        ],
+        include: [
+          {
+            model: Plan,
+            as: 'planDetails',
+            required: false,
+            attributes: ['key', 'name', 'price', 'limitSimulations'],
+          },
+        ],
+      },
     ],
-    order: [['created_at', 'DESC']]
+    order: [['created_at', 'DESC']],
   });
 };
 

@@ -19,6 +19,11 @@ export const createKnowledge = catchAsync(async (req, res, next) => {
   return sendCreated(res, knowledge, 'Tópico de conhecimento criado.');
 });
 
+export const updateKnowledge = catchAsync(async (req, res) => {
+  const knowledge = await adminKnowledgeService.updateKnowledge(req.params.id, req.body);
+  return sendSuccess(res, knowledge, 'Tópico de conhecimento atualizado.');
+});
+
 export const deleteKnowledge = catchAsync(async (req, res, next) => {
   const { id } = req.params;
   await adminKnowledgeService.deleteKnowledge(id);

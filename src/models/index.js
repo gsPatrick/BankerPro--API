@@ -9,6 +9,7 @@ import Scenario from './Scenario.js';
 import Simulation from './Simulation.js';
 import CommercialLearning from './CommercialLearning.js';
 import ProductKnowledge from './ProductKnowledge.js';
+import CommercialOpportunity from './CommercialOpportunity.js';
 import Achievement from './Achievement.js';
 import Client from './Client.js';
 import Goal from './Goal.js';
@@ -17,6 +18,7 @@ import Subscription from './Subscription.js';
 import Plan from './Plan.js';
 import SystemPrompt from './SystemPrompt.js';
 import SystemSetting from './SystemSetting.js';
+import UserDeviceSession from './UserDeviceSession.js';
 
 const env = process.env.NODE_ENV || 'development';
 const config = databaseConfig[env];
@@ -36,6 +38,7 @@ const db = {
   Simulation,
   CommercialLearning,
   ProductKnowledge,
+  CommercialOpportunity,
   Achievement,
   Client,
   Goal,
@@ -43,7 +46,8 @@ const db = {
   Subscription,
   Plan,
   SystemPrompt,
-  SystemSetting
+  SystemSetting,
+  UserDeviceSession
 };
 
 // Initialize all models
@@ -73,6 +77,7 @@ export {
   Simulation,
   CommercialLearning,
   ProductKnowledge,
+  CommercialOpportunity,
   Achievement,
   Client,
   Goal,
@@ -80,7 +85,8 @@ export {
   Subscription,
   Plan,
   SystemPrompt,
-  SystemSetting
+  SystemSetting,
+  UserDeviceSession
 };
 
 export default db;

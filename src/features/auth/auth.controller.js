@@ -46,6 +46,19 @@ export const login = catchAsync(async (req, res, next) => {
   }
 
   const result = await authService.loginUser({ email, password });
+
+  try {
+    const { upsertSessionFromRequest } = await import('../settings/settings.service.js');
+    const { getClientIp } = await import('../../utils/user-agent.js');
+    await upsertSessionFromRequest(result.user.id, {
+      userAgent: req.headers['user-agent'] || '',
+      ipAddress: getClientIp(req),
+      markCurrent: true
+    });
+  } catch (err) {
+    console.warn('Não foi possível registrar sessão do dispositivo:', err.message);
+  }
+
   return sendSuccess(res, result, 'Autenticado com sucesso.');
 });
 
@@ -65,6 +78,7 @@ export const getMe = catchAsync(async (req, res, next) => {
     profile: user.profile,
     plan: planKey,
     whatsapp: user.whatsapp,
+    acceptedTermsAt: user.acceptedTermsAt || null,
     onboardingCompleted: Boolean(user.profile?.onboardingCompleted),
     avatarUrl: user.profile?.avatarUrl || null,
     permissions: plan ? plan.permissions : ['simulations', 'biblioteca']

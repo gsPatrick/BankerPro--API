@@ -26,6 +26,11 @@ export const getCurrentSubscription = catchAsync(async (req, res, next) => {
   );
 });
 
+export const getSubscriptionHistory = catchAsync(async (req, res) => {
+  const history = await subscriptionService.listSubscriptionHistory(req.user.id);
+  return sendSuccess(res, history, 'Histórico de assinaturas do usuário.');
+});
+
 export const getCheckoutConfig = catchAsync(async (req, res) => {
   const config = await subscriptionService.getCheckoutPublicConfig();
   return sendSuccess(res, config, 'Configuração pública de checkout.');

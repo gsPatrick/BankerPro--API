@@ -40,6 +40,15 @@ router.route('/knowledge/:id')
   .put(codexController.updateKnowledge)
   .delete(codexController.deleteKnowledge);
 
+// --- COMMERCIAL OPPORTUNITIES ---
+router.route('/opportunities')
+  .get(codexController.listOpportunities)
+  .post(codexController.createOpportunity);
+
+router.route('/opportunities/:id')
+  .put(codexController.updateOpportunity)
+  .delete(codexController.deleteOpportunity);
+
 // --- TERMS OF USE ---
 router.route('/terms')
   .get(codexController.getTerms)

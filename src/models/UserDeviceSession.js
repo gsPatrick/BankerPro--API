@@ -1,7 +1,6 @@
 import { Model, DataTypes } from 'sequelize';
-import { SubscriptionStatus } from '../config/constants.js';
 
-export default class Subscription extends Model {
+export default class UserDeviceSession extends Model {
   static init(sequelize) {
     return super.init({
       id: {
@@ -18,40 +17,45 @@ export default class Subscription extends Model {
         },
         onDelete: 'CASCADE'
       },
-      plan: {
+      deviceLabel: {
         type: DataTypes.STRING,
         allowNull: false,
-        references: {
-          model: 'plans',
-          key: 'key'
-        }
+        defaultValue: 'Dispositivo'
       },
-      status: {
-        type: DataTypes.STRING,
-        defaultValue: SubscriptionStatus.ACTIVE,
-        validate: {
-          isIn: [Object.values(SubscriptionStatus)]
-        }
-      },
-      mpSubscriptionId: {
+      browser: {
         type: DataTypes.STRING,
         allowNull: true
       },
-      paymentMethod: {
+      os: {
         type: DataTypes.STRING,
         allowNull: true
       },
-      startsAt: {
+      deviceType: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: 'desktop'
+      },
+      userAgent: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
+      ipAddress: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      lastSeenAt: {
         type: DataTypes.DATE,
-        allowNull: true
+        allowNull: false,
+        defaultValue: DataTypes.NOW
       },
-      endsAt: {
-        type: DataTypes.DATE,
-        allowNull: true
+      isCurrent: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
       }
     }, {
       sequelize,
-      tableName: 'subscriptions',
+      tableName: 'user_device_sessions',
       underscored: true,
       timestamps: true
     });
@@ -59,6 +63,5 @@ export default class Subscription extends Model {
 
   static associate(models) {
     this.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
-    this.belongsTo(models.Plan, { foreignKey: 'plan', targetKey: 'key', as: 'planDetails' });
   }
 }

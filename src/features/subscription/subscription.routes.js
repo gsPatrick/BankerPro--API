@@ -12,6 +12,7 @@ router.get('/checkout-config', subscriptionController.getCheckoutConfig);
 // Rotas autenticadas
 router.use(requireAuth);
 router.get('/current', subscriptionController.getCurrentSubscription);
+router.get('/history', subscriptionController.getSubscriptionHistory);
 router.get('/payment/:paymentId', subscriptionController.getPaymentStatus);
 router.post('/checkout', subscriptionController.checkout);
 

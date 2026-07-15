@@ -177,6 +177,92 @@ Permite listar, criar, editar ou excluir tópicos de conhecimento sobre produtos
 
 ---
 
+### 5.1. Lista de Oportunidades (`/opportunities`) ⭐
+
+Base cadastrável de **roteiros comerciais prontos** (produto + perfil de cliente + scripts de abertura, diagnóstico, objeções e fechamento).
+
+> **Importante:** esta área **não usa IA em tempo real**. O Codex deve **criar e editar** os registros pela API para alimentar a tela `/oportunidades` do front.
+
+Tabela: `commercial_opportunities`
+
+#### 🔹 Listar oportunidades
+* **Método:** `GET`
+* **Endpoint:** `/opportunities`
+* **Query opcional:**
+  * `product` — Consórcio | Financiamento | Empréstimo | Consignado | Cartão de Crédito | Seguro de Vida | Capitalização
+  * `channel` — Ligação | WhatsApp | Presencial
+  * `tag` — uma tag exata (ex: `jovem`)
+  * `status` — Ativo | Inativo
+  * `search` — busca em título, perfil, objetivo e produto
+* **Exemplo:**
+  ```bash
+  curl -H "X-Codex-Token: seu_token" \
+    "https://bankerpro-bankerpro--api.wohb2u.easypanel.host/api/v1/codex/opportunities?product=Capitalização&status=Ativo"
+  ```
+
+#### 🔹 Criar oportunidade
+* **Método:** `POST`
+* **Endpoint:** `/opportunities`
+* **Body (JSON) completo:**
+  ```json
+  {
+    "title": "Cliente jovem com pouco relacionamento",
+    "product": "Capitalização",
+    "alternativeProduct": "Cartão de Crédito",
+    "clientProfile": "Cliente de 18 a 25 anos, renda de R$1.500 a R$3.000, pouco relacionamento com o banco.",
+    "ageRange": "18 a 25 anos",
+    "incomeRange": "R$ 1.500 a R$ 3.000",
+    "balanceRange": "Pouco relacionamento / saldo baixo",
+    "recommendedChannel": "WhatsApp",
+    "objective": "Criar recorrência, movimentação e hábito de guardar dinheiro.",
+    "openingScript": "Oi, [nome], tudo bem? Estou entrando em contato para ver se conseguimos organizar uma forma simples de você começar a guardar um valor mensal sem pesar no seu orçamento.",
+    "diagnosticQuestions": [
+      "Hoje você consegue guardar algum valor por mês?",
+      "Você costuma usar mais débito, Pix ou cartão?",
+      "Tem algum objetivo financeiro para os próximos meses?",
+      "Se fosse começar com um valor pequeno, quanto caberia no seu mês?"
+    ],
+    "mainArgument": "A ideia não é te colocar em uma parcela pesada. É começar com um valor pequeno, criar disciplina e movimentar seu relacionamento com o banco.",
+    "objections": [
+      "Não tenho dinheiro sobrando.",
+      "Não quero compromisso agora.",
+      "Depois eu vejo.",
+      "Isso não me interessa."
+    ],
+    "objectionResponses": [
+      "Eu entendo. Por isso mesmo a ideia é começar com algo leve. Se não couber agora, a gente ajusta para um valor menor ou deixa programado para outro momento."
+    ],
+    "fallbackPlan": "Se não aceitar capitalização, oferecer uma abordagem mais leve de relacionamento ou cartão, se houver disponibilidade.",
+    "closingScript": "Posso te mostrar uma opção simples para você avaliar?",
+    "tags": ["jovem", "capitalização", "relacionamento", "whatsapp"],
+    "status": "Ativo"
+  }
+  ```
+* **Campos obrigatórios na criação:** `title`, `product`
+* **Produtos válidos:** `Consórcio`, `Financiamento`, `Empréstimo`, `Consignado`, `Cartão de Crédito`, `Seguro de Vida`, `Capitalização`
+* **Canais válidos:** `Ligação`, `WhatsApp`, `Presencial`
+* **Status válidos:** `Ativo`, `Inativo`
+* **Arrays:** `diagnosticQuestions`, `objections`, `objectionResponses`, `tags` (pode enviar array JSON ou texto com uma linha por item)
+* **Snake_case também aceito:** `alternative_product`, `client_profile`, `age_range`, `income_range`, `balance_range`, `recommended_channel`, `opening_script`, `diagnostic_questions`, `main_argument`, `objection_responses`, `fallback_plan`, `closing_script`
+
+#### 🔹 Atualizar oportunidade
+* **Método:** `PUT`
+* **Endpoint:** `/opportunities/:id`
+* Envie apenas os campos que deseja alterar (ex: `{ "status": "Inativo" }`).
+
+#### 🔹 Excluir oportunidade
+* **Método:** `DELETE`
+* **Endpoint:** `/opportunities/:id`
+
+#### ⚠️ Regra de conteúdo
+Não recomendar investimentos (CDB, fundos, previdência, etc.). Saldo/dinheiro parado só como **perfil** para ofertar produtos bancários permitidos (consórcio, seguro, capitalização, cartão, crédito…).
+
+#### Endpoints espelho (fora do Codex)
+* Usuário (JWT): `GET /api/v1/commercial-opportunities` (só Ativas)
+* Admin (JWT + role admin): `GET/POST /api/v1/admin/opportunities` e `PUT/DELETE /api/v1/admin/opportunities/:id`
+
+---
+
 ### 6. Termos de Uso e Consentimento (`/terms`)
 
 Permite que a IA visualize ou modifique o texto dos Termos de Uso e Consentimento LGPD salvos na tabela de configurações.
@@ -263,11 +349,22 @@ Copie e cole o texto abaixo no chat da sua IA de desenvolvimento (Claude, GPT, e
 
 ```text
 Olá! Você está integrado como agente de desenvolvimento do BankerPro.
-Você pode inspecionar e alterar cenários, prompts e tabelas usando comandos de terminal curl.
+Você pode inspecionar e alterar cenários, prompts, lista de oportunidades comerciais e tabelas usando curl.
 
 Informações de conexão:
 - Base URL: https://bankerpro-bankerpro--api.wohb2u.easypanel.host/api/v1/codex
 - Header de Token: X-Codex-Token: codex_developer_secret_key_123456
 
-Quando eu solicitar alterações no sistema (ex: criar cenários, ver usuários ou alterar prompts), formule e execute a requisição HTTP correspondente (usando curl via terminal) para buscar dados ou fazer modificações. Sempre apresente os resultados com clareza.
+Recursos principais:
+- GET/POST /scenarios e PUT/DELETE /scenarios/:id
+- GET /prompts e PUT /prompts/:key
+- GET/POST /knowledge e PUT/DELETE /knowledge/:id
+- GET/POST /opportunities e PUT/DELETE /opportunities/:id  ← Lista de Oportunidades (roteiros comerciais por produto/perfil; sem IA em tempo real)
+- GET/POST /settings, GET/PUT /terms, WhatsApp e /sql
+
+Produtos válidos em opportunities: Consórcio, Financiamento, Empréstimo, Consignado, Cartão de Crédito, Seguro de Vida, Capitalização.
+Canais: Ligação, WhatsApp, Presencial. Status: Ativo | Inativo.
+Não recomendar investimentos; saldo/aplicação só como contexto de perfil.
+
+Quando eu pedir para criar roteiros/opportunities, cenários ou alterar prompts, formule e execute a requisição HTTP (curl) e mostre o resultado com clareza.
 ```

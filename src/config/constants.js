@@ -72,3 +72,24 @@ export const CommercialLearningResults = {
   ANALISE: 'analise',
   SEM_VENDA: 'sem_venda'
 };
+
+export const OpportunityProducts = [
+  'Consórcio',
+  'Financiamento',
+  'Empréstimo',
+  'Consignado',
+  'Cartão de Crédito',
+  'Seguro de Vida',
+  'Capitalização',
+];
+
+export const OpportunityChannels = [
+  'Ligação',
+  'WhatsApp',
+  'Presencial',
+];
+
+export const OpportunityStatuses = [
+  'Ativo',
+  'Inativo',
+];

@@ -66,5 +66,6 @@ export default class User extends Model {
     this.hasMany(models.Goal, { foreignKey: 'createdByUserId', as: 'goals' });
     this.hasMany(models.Note, { foreignKey: 'createdByUserId', as: 'notes' });
     this.hasMany(models.Subscription, { foreignKey: 'userId', as: 'subscriptions' });
+    this.hasMany(models.UserDeviceSession, { foreignKey: 'userId', as: 'deviceSessions' });
   }
 }

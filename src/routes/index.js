@@ -10,7 +10,9 @@ import rankingRoutes from '../features/ranking/ranking.routes.js';
 import achievementRoutes from '../features/achievement/achievement.routes.js';
 import aiRoutes from '../features/ai/ai.routes.js';
 import subscriptionRoutes from '../features/subscription/subscription.routes.js';
+import settingsRoutes from '../features/settings/settings.routes.js';
 import productKnowledgeRoutes from '../features/product-knowledge/product-knowledge.routes.js';
+import commercialOpportunityRoutes from '../features/commercial-opportunity/commercial-opportunity.routes.js';
 import adminRoutes from '../features/admin/admin.routes.js';
 import codexRoutes from '../features/codex/codex.routes.js';
 import whatsappRoutes from '../features/whatsapp/whatsapp.routes.js';
@@ -59,8 +61,16 @@ router.use('/ai', aiRoutes);
 router.use('/subscription', subscriptionRoutes);
 router.use('/subscriptions', subscriptionRoutes);
 
+router.use('/settings', settingsRoutes);
+router.use('/configuracoes', settingsRoutes);
+
 router.use('/product-knowledge', productKnowledgeRoutes);
 router.use('/product-knowledges', productKnowledgeRoutes);
+
+router.use('/commercial-opportunities', commercialOpportunityRoutes);
+router.use('/commercial-opportunity', commercialOpportunityRoutes);
+router.use('/opportunities', commercialOpportunityRoutes);
+router.use('/opportunity', commercialOpportunityRoutes);
 
 router.use('/admin', adminRoutes);
 router.use('/codex', codexRoutes);
