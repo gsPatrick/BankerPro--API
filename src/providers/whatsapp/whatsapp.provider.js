@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import AppError from '../../utils/app-error.js';
 import { getSettingValue } from '../../utils/settings-resolver.js';
 
