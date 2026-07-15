@@ -10,11 +10,15 @@ import * as adminOpportunitiesController from './controllers/admin-opportunities
 import * as adminUsersController from './controllers/admin-users.controller.js';
 import * as adminSettingsController from './controllers/admin-settings.controller.js';
 import * as adminAgentController from './controllers/admin-agent.controller.js';
+import * as adminFinanceiroController from './controllers/admin-financeiro.controller.js';
 
 const router = Router();
 
 // Garantir que todos os acessos ao painel admin exijam autenticação e perfil de admin
 router.use(requireAuth, requireRole('admin'));
+
+// --- FINANCIAL SUMMARY & HISTORY ---
+router.get('/financeiro', adminFinanceiroController.getFinancialSummary);
 
 // --- SCENARIO MANAGEMENT ---
 router.route('/scenarios')
