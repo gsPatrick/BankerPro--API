@@ -1,5 +1,6 @@
 import { sequelize, Scenario, SystemPrompt, SystemSetting, ProductKnowledge } from '../../models/index.js';
 import * as whatsappService from '../whatsapp/whatsapp.service.js';
+import * as adminSettingsService from '../admin/services/admin-settings.service.js';
 
 export const ping = (req, res) => {
   res.json({
@@ -76,7 +77,7 @@ export const updatePrompt = async (req, res, next) => {
 
 export const listSettings = async (req, res, next) => {
   try {
-    const list = await SystemSetting.findAll();
+    const list = await adminSettingsService.listSettings();
     res.json({ success: true, data: list });
   } catch (err) {
     next(err);
