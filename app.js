@@ -108,6 +108,13 @@ async function bootDatabase() {
     await sequelize.sync({ alter: true });
     console.log('✅ Modelos sincronizados.');
 
+    // Garantir sincronização automática e atualizada dos planos
+    console.log('🌱 Sincronizando planos...');
+    for (const plan of plansData) {
+      await Plan.upsert(plan);
+    }
+    console.log('✅ Planos sincronizados.');
+
     // Verificar se o banco já tem dados (checando se existe ao menos 1 usuário)
     const userCount = await User.count();
     if (userCount === 0) {
@@ -131,9 +138,7 @@ async function bootDatabase() {
       });
       console.log('  ✅ Admin criado (admin@admin.com / admin123)');
 
-      // Planos
-      await Plan.bulkCreate(plansData);
-      console.log(`  ✅ ${plansData.length} planos criados`);
+      // Planos (sincronizados no boot acima)
 
       // Cenários
       await Scenario.bulkCreate(scenariosData);
