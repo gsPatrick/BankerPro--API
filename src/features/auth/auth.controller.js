@@ -6,13 +6,13 @@ import { Plan } from '../../models/index.js';
 import { getSettingValue } from '../../utils/settings-resolver.js';
 
 export const register = catchAsync(async (req, res, next) => {
-  const { email, password, acceptedTerms } = req.body;
+  const { email, password, acceptedTerms, fullName, whatsapp } = req.body;
 
   if (!email || !password) {
     return next(new AppError('E-mail e senha são obrigatórios.', 400, 'BAD_REQUEST'));
   }
 
-  const result = await authService.registerUser({ email, password, acceptedTerms });
+  const result = await authService.registerUser({ email, password, acceptedTerms, fullName, whatsapp });
   return sendCreated(res, result, 'Cadastro realizado com sucesso.');
 });
 

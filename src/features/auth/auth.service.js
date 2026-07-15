@@ -11,7 +11,7 @@ const generateToken = (userId) => {
   );
 };
 
-export const registerUser = async ({ email, password, acceptedTerms }) => {
+export const registerUser = async ({ email, password, acceptedTerms, fullName, whatsapp }) => {
   // 0) Validar aceite de termos e LGPD
   if (acceptedTerms !== true && acceptedTerms !== 'true') {
     throw new AppError('Você precisa concordar com os Termos de Uso e Políticas de Privacidade (LGPD).', 400, 'TERMS_NOT_ACCEPTED');
@@ -33,7 +33,9 @@ export const registerUser = async ({ email, password, acceptedTerms }) => {
     passwordHash,
     role: 'user',
     emailVerified: true,
-    acceptedTermsAt: new Date()
+    acceptedTermsAt: new Date(),
+    fullName,
+    whatsapp
   });
 
   // 3.5) Garantir a criação automática de UserProfile padrão de imediato
