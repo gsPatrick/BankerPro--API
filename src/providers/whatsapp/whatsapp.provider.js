@@ -25,7 +25,34 @@ export const getInstanceStatus = async () => {
     }
 
     const data = await response.json();
-    return { exists: true, status: data.instance?.state || 'DISCONNECTED', qrcode: data.qrcode || null };
+    const status = data.instance?.state || 'DISCONNECTED';
+
+    let qrcode = null;
+    // Se a instância estiver criada mas não estiver ativa/conectada, busca o QR Code
+    if (status !== 'CONNECTED' && status !== 'open') {
+      try {
+        const connectResponse = await fetch(`${url}/instance/connect/copilot`, {
+          headers: {
+            'apikey': apiKey
+          }
+        });
+        if (connectResponse.ok) {
+          const connectData = await connectResponse.json();
+          let base64 = connectData.base64 || connectData.qrcode?.base64 || null;
+          if (base64 && !base64.startsWith('data:')) {
+            base64 = `data:image/png;base64,${base64}`;
+          }
+          qrcode = {
+            base64,
+            code: connectData.code || connectData.qrcode?.code || null
+          };
+        }
+      } catch (err) {
+        console.error('Erro ao buscar QR code no Evolution connect:', err);
+      }
+    }
+
+    return { exists: true, status, qrcode };
   } catch (error) {
     console.error('Erro ao verificar status da instância no Evolution:', error);
     return { exists: false, status: 'ERROR', error: error.message };
