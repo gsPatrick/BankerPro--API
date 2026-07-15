@@ -99,7 +99,7 @@ Permite que a IA adicione novos cenários ou edite os perfis de clientes de test
 
 ---
 
-### 2. Prompts Globais do Sistema (`/prompts`)
+### 3. Prompts Globais do Sistema (`/prompts`)
 
 Permite alterar as regras de comportamento do Simulador de Clientes e do Copiloto IA.
 
@@ -120,7 +120,7 @@ Permite alterar as regras de comportamento do Simulador de Clientes e do Copilot
 
 ---
 
-### 3. Configurações de Chaves e APIs (`/settings`)
+### 4. Configurações de Chaves e APIs (`/settings`)
 
 Permite visualizar ou atualizar as chaves de integração do sistema.
 
@@ -141,7 +141,7 @@ Permite visualizar ou atualizar as chaves de integração do sistema.
 
 ---
 
-### 4. Base de Conhecimento do Copiloto (`/knowledge`)
+### 5. Base de Conhecimento do Copiloto (`/knowledge`)
 
 Permite listar, criar, editar ou excluir tópicos de conhecimento sobre produtos (que o Copiloto da IA consulta para guiar o bancário).
 
@@ -177,7 +177,70 @@ Permite listar, criar, editar ou excluir tópicos de conhecimento sobre produtos
 
 ---
 
-### 5. Consultas Avançadas de Banco de Dados (`/sql`)
+### 6. Termos de Uso e Consentimento (`/terms`)
+
+Permite que a IA visualize ou modifique o texto dos Termos de Uso e Consentimento LGPD salvos na tabela de configurações.
+
+#### 🔹 Obter texto atual dos Termos de Uso
+* **Método:** `GET`
+* **Endpoint:** `/terms`
+* **Exemplo de Retorno (JSON):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "uuid-...",
+      "key": "TERMS_OF_USE_TEXT",
+      "value": "Texto completo dos termos de uso e consentimento..."
+    }
+  }
+  ```
+
+#### 🔹 Atualizar texto dos Termos de Uso
+* **Método:** `PUT`
+* **Endpoint:** `/terms`
+* **Body (JSON):**
+  ```json
+  {
+    "text": "Novo texto dos termos de uso e política de privacidade LGPD..."
+  }
+  ```
+
+---
+
+### 7. Controle da Conexão do WhatsApp Copilot (`/whatsapp`)
+
+Permite monitorar, conectar ou desconectar a instância do WhatsApp Copilot diretamente na Evolution API.
+
+#### 🔹 Obter status e QR Code de pareamento
+* **Método:** `GET`
+* **Endpoint:** `/whatsapp/status`
+* **Exemplo de Retorno (JSON):**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "exists": true,
+      "status": "DISCONNECTED",
+      "qrcode": {
+        "base64": "data:image/png;base64,iVBORw0KGgo...",
+        "code": "5511999999999@c.us"
+      }
+    }
+  }
+  ```
+
+#### 🔹 Iniciar/criar instância de conexão
+* **Método:** `POST`
+* **Endpoint:** `/whatsapp/connect`
+
+#### 🔹 Desconectar/excluir instância
+* **Método:** `POST`
+* **Endpoint:** `/whatsapp/disconnect`
+
+---
+
+### 8. Consultas Avançadas de Banco de Dados (`/sql`)
 
 Uma ferramenta de alto poder que permite à IA executar qualquer instrução SQL bruta no banco PostgreSQL (SELECT, UPDATE, DELETE, etc.).
 
@@ -189,6 +252,8 @@ Uma ferramenta de alto poder que permite à IA executar qualquer instrução SQL
     "sql": "SELECT count(*), role FROM users GROUP BY role;"
   }
   ```
+
+---
 
 ---
 
