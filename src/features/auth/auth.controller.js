@@ -64,6 +64,7 @@ export const getMe = catchAsync(async (req, res, next) => {
     role: user.role,
     profile: user.profile,
     plan: planKey,
+    whatsapp: user.whatsapp,
     permissions: plan ? plan.permissions : ['simulations', 'biblioteca']
   }, 'Dados do usuário autenticado.');
 });

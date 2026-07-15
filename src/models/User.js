@@ -43,6 +43,11 @@ export default class User extends Model {
       acceptedTermsAt: {
         type: DataTypes.DATE,
         allowNull: true
+      },
+      whatsapp: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        unique: true
       }
     }, {
       sequelize,
