@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
@@ -51,6 +52,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
+app.use('/uploads', express.static(path.resolve('uploads')));
 
 // Converter chaves de req.body, req.query, req.params de snake_case para camelCase
 app.use((req, res, next) => {
