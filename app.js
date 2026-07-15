@@ -113,6 +113,12 @@ async function bootDatabase() {
     for (const plan of plansData) {
       await Plan.upsert(plan);
     }
+    // Remover planos obsoletos
+    await Plan.destroy({
+      where: {
+        key: ['free', 'standard_monthly', 'premium_monthly', 'team']
+      }
+    });
     console.log('✅ Planos sincronizados.');
 
     // Verificar se o banco já tem dados (checando se existe ao menos 1 usuário)

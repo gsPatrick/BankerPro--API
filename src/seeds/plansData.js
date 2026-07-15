@@ -1,27 +1,11 @@
 export const plansData = [
   {
-    key: 'standard_monthly',
-    name: 'Standard - Mensal',
-    price: 29.00,
-    limitSimulations: 30,
-    features: ['30 Simulações / mês', 'Acesso à biblioteca de cenários', 'Histórico de treinos', 'Copiloto de IA básico'],
-    permissions: ['simulations', 'biblioteca']
-  },
-  {
     key: 'standard_yearly',
     name: 'Standard - Anual',
     price: 247.00,
     limitSimulations: 30,
     features: ['30 Simulações / mês', 'Acesso à biblioteca de cenários', 'Histórico de treinos', 'Copiloto de IA básico', 'Economia de 30% no ano'],
     permissions: ['simulations', 'biblioteca']
-  },
-  {
-    key: 'premium_monthly',
-    name: 'Premium - Mensal',
-    price: 49.00,
-    limitSimulations: 100,
-    features: ['100 Simulações / mês', 'Todos os cenários liberados', 'Gerador de abordagens', 'Copiloto no WhatsApp', 'Metas e progresso individual'],
-    permissions: ['simulations', 'biblioteca', 'copiloto', 'gerador', 'anotacoes', 'metas', 'agenda']
   },
   {
     key: 'premium_yearly',
