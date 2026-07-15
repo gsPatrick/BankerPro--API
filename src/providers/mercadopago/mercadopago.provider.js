@@ -1,6 +1,8 @@
 import AppError from '../../utils/app-error.js';
 import { getSettingValue } from '../../utils/settings-resolver.js';
 
+const mockPixPayments = new Map();
+
 export const createCheckoutPreference = async (userId, userEmail, planType, price) => {
   const token = await getSettingValue('MP_ACCESS_TOKEN');
   if (!token || token === 'your_mercado_pago_access_token_here') {
@@ -60,6 +62,19 @@ export const createCheckoutPreference = async (userId, userEmail, planType, pric
 export const getPaymentDetails = async (paymentId) => {
   const token = await getSettingValue('MP_ACCESS_TOKEN');
   if (!token || token === 'your_mercado_pago_access_token_here') {
+    const mockPayment = mockPixPayments.get(String(paymentId));
+    if (mockPayment) {
+      const elapsed = Date.now() - mockPayment.createdAt;
+      return {
+        status: elapsed >= 8000 ? 'approved' : 'pending',
+        external_reference: JSON.stringify({
+          userId: mockPayment.userId,
+          planType: mockPayment.planType
+        }),
+        id: paymentId
+      };
+    }
+
     return {
       status: 'approved',
       external_reference: JSON.stringify({ userId: 'mock-user-id', planType: 'pro' }),
@@ -134,13 +149,17 @@ export const createPreapproval = async (userId, userEmail, planType, price, card
 export const createPixPayment = async (userId, userEmail, planType, price, docNumber, docType = 'CPF') => {
   const token = await getSettingValue('MP_ACCESS_TOKEN');
   if (!token || token === 'your_mercado_pago_access_token_here') {
+    const id = 'pix_mock_' + Date.now();
+    mockPixPayments.set(id, { userId, planType, createdAt: Date.now() });
     return {
-      id: 'pix_mock_' + Date.now(),
+      id,
       status: 'pending',
+      external_reference: JSON.stringify({ userId, planType }),
       point_of_interaction: {
         transaction_data: {
-          qr_code: 'MOCK_QR_CODE_DATA_PIX_SAMPLE',
-          qr_code_copy: '00020126580014br.gov.bcb.pix0136mock-key-1234-5678-9012-345678901234'
+          qr_code: '00020126580014br.gov.bcb.pix0136mock-key-1234-5678-9012-3456789012345204000053039865802BR5913BankerPro Mock6009SAO PAULO62070503***6304ABCD',
+          qr_code_base64: null,
+          qr_code_copy: '00020126580014br.gov.bcb.pix0136mock-key-1234-5678-9012-3456789012345204000053039865802BR5913BankerPro Mock6009SAO PAULO62070503***6304ABCD'
         }
       }
     };
@@ -151,7 +170,8 @@ export const createPixPayment = async (userId, userEmail, planType, price, docNu
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': `${userId}-${planType}-${Date.now()}`
       },
       body: JSON.stringify({
         transaction_amount: price,

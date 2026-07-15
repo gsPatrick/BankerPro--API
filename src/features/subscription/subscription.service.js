@@ -1,6 +1,7 @@
 import { Subscription, User, Plan } from '../../models/index.js';
 import * as mpProvider from '../../providers/mercadopago/mercadopago.provider.js';
 import AppError from '../../utils/app-error.js';
+import { getSettingValue } from '../../utils/settings-resolver.js';
 
 export const listPlans = async () => {
   const plans = await Plan.findAll({
@@ -10,21 +11,38 @@ export const listPlans = async () => {
 };
 
 export const getSubscriptionByUserId = async (userId) => {
-  let sub = await Subscription.findOne({
+  const sub = await Subscription.findOne({
     where: { userId, status: 'active' },
     order: [['created_at', 'DESC']]
   });
 
-  if (!sub) {
-    sub = {
-      plan: 'free',
-      status: 'active',
-      startsAt: null,
-      endsAt: null
-    };
+  return sub || null;
+};
+
+export const activateFreePlan = async (userId, planType = 'free') => {
+  const plan = await Plan.findOne({ where: { key: planType } });
+  if (!plan) {
+    throw new AppError('Plano inválido.', 404, 'PLAN_NOT_FOUND');
   }
 
-  return sub;
+  if (parseFloat(plan.price) > 0) {
+    throw new AppError('Este endpoint é apenas para planos gratuitos.', 400, 'BAD_REQUEST');
+  }
+
+  await Subscription.update(
+    { status: 'cancelled' },
+    { where: { userId, status: 'active' } }
+  );
+
+  const subscription = await Subscription.create({
+    userId,
+    plan: planType,
+    status: 'active',
+    startsAt: new Date(),
+    endsAt: null
+  });
+
+  return subscription;
 };
 
 export const checkoutSubscription = async (userId, planType, paymentMethod = null, cardToken = null, docNumber = null, docType = 'CPF') => {
@@ -33,8 +51,14 @@ export const checkoutSubscription = async (userId, planType, paymentMethod = nul
     throw new AppError('Plano inválido para checkout.', 404, 'PLAN_NOT_FOUND');
   }
 
-  if (parseFloat(plan.price) <= 0) {
-    throw new AppError('Planos gratuitos não exigem checkout financeiro.', 400, 'BAD_REQUEST');
+  if (parseFloat(plan.price) <= 0 || planType === 'free' || paymentMethod === 'free') {
+    const subscription = await activateFreePlan(userId, plan.key || planType || 'free');
+    return {
+      free: true,
+      planSelected: true,
+      activated: true,
+      subscription
+    };
   }
 
   const user = await User.findByPk(userId);
@@ -42,10 +66,13 @@ export const checkoutSubscription = async (userId, planType, paymentMethod = nul
     throw new AppError('Usuário não encontrado.', 404, 'USER_NOT_FOUND');
   }
 
-  // Se o método de pagamento não foi informado, utiliza o Checkout Pro (Redirecionamento) como fallback
+  // Checkout transparente: exigir método de pagamento no site (cartão ou PIX)
   if (!paymentMethod) {
-    const preference = await mpProvider.createCheckoutPreference(userId, user.email, planType, parseFloat(plan.price));
-    return preference;
+    throw new AppError(
+      'Informe o método de pagamento: credit_card ou pix.',
+      400,
+      'PAYMENT_METHOD_REQUIRED'
+    );
   }
 
   if (paymentMethod === 'credit_card') {
@@ -75,7 +102,11 @@ export const checkoutSubscription = async (userId, planType, paymentMethod = nul
       });
     }
 
-    return preapproval;
+    return {
+      ...preapproval,
+      paymentMethod: 'credit_card',
+      activated: preapproval.status === 'authorized' || preapproval.status === 'active'
+    };
   }
 
   if (paymentMethod === 'pix') {
@@ -83,10 +114,120 @@ export const checkoutSubscription = async (userId, planType, paymentMethod = nul
       throw new AppError('CPF/CNPJ do pagador (docNumber) é obrigatório para pagamento via PIX.', 400, 'BAD_REQUEST');
     }
     const payment = await mpProvider.createPixPayment(userId, user.email, planType, parseFloat(plan.price), docNumber, docType);
-    return payment;
+    const transactionData = payment.point_of_interaction?.transaction_data || {};
+
+    return {
+      id: payment.id,
+      status: payment.status,
+      paymentMethod: 'pix',
+      qrCodeBase64: transactionData.qr_code_base64 || null,
+      qrCodeCopy: transactionData.qr_code || transactionData.qr_code_copy || null,
+      pointOfInteraction: payment.point_of_interaction
+    };
   }
 
-  throw new AppError('Método de pagamento não suportado.', 400, 'BAD_REQUEST');
+  throw new AppError('Método de pagamento não suportado. Use credit_card ou pix.', 400, 'BAD_REQUEST');
+};
+
+export const activateSubscriptionFromApprovedPayment = async (payment) => {
+  if (payment.status !== 'approved') {
+    return {
+      status: payment.status,
+      activated: false
+    };
+  }
+
+  let externalData;
+  try {
+    externalData = typeof payment.external_reference === 'string'
+      ? JSON.parse(payment.external_reference)
+      : payment.external_reference;
+  } catch (e) {
+    throw new AppError('Referência externa do pagamento inválida.', 400, 'INVALID_EXTERNAL_REFERENCE');
+  }
+
+  const { userId, planType } = externalData || {};
+  if (!userId || !planType) {
+    throw new AppError('Pagamento sem dados de usuário/plano.', 400, 'MISSING_PAYMENT_DATA');
+  }
+
+  const plan = await Plan.findOne({ where: { key: planType } });
+  if (!plan) {
+    throw new AppError('Plano do pagamento não encontrado.', 404, 'PLAN_NOT_FOUND');
+  }
+
+  const existing = await Subscription.findOne({
+    where: {
+      userId,
+      status: 'active',
+      mpSubscriptionId: payment.id?.toString()
+    }
+  });
+
+  if (existing) {
+    return {
+      status: 'approved',
+      activated: true,
+      subscription: existing
+    };
+  }
+
+  const startsAt = new Date();
+  const endsAt = new Date();
+  endsAt.setDate(endsAt.getDate() + 30);
+
+  await Subscription.update(
+    { status: 'cancelled' },
+    { where: { userId, status: 'active' } }
+  );
+
+  const subscription = await Subscription.create({
+    userId,
+    plan: planType,
+    status: 'active',
+    mpSubscriptionId: payment.id.toString(),
+    startsAt,
+    endsAt
+  });
+
+  return {
+    status: 'approved',
+    activated: true,
+    subscription
+  };
+};
+
+export const checkPaymentStatus = async (paymentId, requestingUserId) => {
+  const payment = await mpProvider.getPaymentDetails(paymentId);
+
+  let externalData = null;
+  try {
+    externalData = typeof payment.external_reference === 'string'
+      ? JSON.parse(payment.external_reference)
+      : payment.external_reference;
+  } catch {
+    externalData = null;
+  }
+
+  if (externalData?.userId && externalData.userId !== requestingUserId) {
+    throw new AppError('Pagamento não pertence a este usuário.', 403, 'PERMISSION_DENIED');
+  }
+
+  if (payment.status === 'approved') {
+    return activateSubscriptionFromApprovedPayment(payment);
+  }
+
+  return {
+    status: payment.status,
+    activated: false
+  };
+};
+
+export const getCheckoutPublicConfig = async () => {
+  const publicKey = await getSettingValue('MP_PUBLIC_KEY');
+  return {
+    publicKey: publicKey && publicKey !== 'your_mercado_pago_public_key_here' ? publicKey : null
+  };
 };
 
 export const handlePaymentWebhook = async (payload) => {
@@ -99,48 +240,9 @@ export const handlePaymentWebhook = async (payload) => {
     const payment = await mpProvider.getPaymentDetails(paymentId);
 
     if (payment.status === 'approved') {
-      let externalData;
-      try {
-        externalData = typeof payment.external_reference === 'string' 
-          ? JSON.parse(payment.external_reference) 
-          : payment.external_reference;
-      } catch (e) {
-        console.error('Falha ao parsear external_reference do pagamento:', payment.external_reference);
-        return { error: 'Invalid external reference' };
-      }
-
-      const { userId, planType } = externalData || {};
-      if (!userId || !planType) {
-        return { error: 'Missing user or plan data' };
-      }
-
-      // Verificar se o plano existe no banco de dados antes de assinar
-      const plan = await Plan.findOne({ where: { key: planType } });
-      if (!plan) {
-        console.error(`Plano ${planType} não encontrado no banco de dados. Ignorando ativação.`);
-        return { error: 'Plan not found in database' };
-      }
-
-      const startsAt = new Date();
-      const endsAt = new Date();
-      endsAt.setDate(endsAt.getDate() + 30); // 30 dias de vigência
-
-      await Subscription.update(
-        { status: 'cancelled' },
-        { where: { userId, status: 'active' } }
-      );
-
-      const subscription = await Subscription.create({
-        userId,
-        plan: planType,
-        status: 'active',
-        mpSubscriptionId: paymentId.toString(),
-        startsAt,
-        endsAt
-      });
-
-      console.log(`✅ Assinatura ativada para o usuário ${userId}. Plano: ${planType}.`);
-      return subscription;
+      const result = await activateSubscriptionFromApprovedPayment(payment);
+      console.log(`✅ Assinatura ativada via webhook. Pagamento: ${paymentId}.`);
+      return result;
     }
 
     return { status: payment.status };

@@ -10,7 +10,35 @@ export const getPlans = catchAsync(async (req, res, next) => {
 
 export const getCurrentSubscription = catchAsync(async (req, res, next) => {
   const subscription = await subscriptionService.getSubscriptionByUserId(req.user.id);
-  return sendSuccess(res, subscription, 'Assinatura atual do usuário.');
+  return sendSuccess(
+    res,
+    subscription
+      ? {
+          ...subscription.toJSON(),
+          planSelected: true
+        }
+      : {
+          plan: null,
+          status: null,
+          planSelected: false
+        },
+    subscription ? 'Assinatura atual do usuário.' : 'Nenhum plano selecionado.'
+  );
+});
+
+export const getCheckoutConfig = catchAsync(async (req, res) => {
+  const config = await subscriptionService.getCheckoutPublicConfig();
+  return sendSuccess(res, config, 'Configuração pública de checkout.');
+});
+
+export const getPaymentStatus = catchAsync(async (req, res, next) => {
+  const { paymentId } = req.params;
+  if (!paymentId) {
+    return next(new AppError('paymentId é obrigatório.', 400, 'BAD_REQUEST'));
+  }
+
+  const result = await subscriptionService.checkPaymentStatus(paymentId, req.user.id);
+  return sendSuccess(res, result, 'Status do pagamento.');
 });
 
 export const checkout = catchAsync(async (req, res, next) => {
