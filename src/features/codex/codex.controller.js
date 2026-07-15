@@ -1,4 +1,5 @@
 import { sequelize, Scenario, SystemPrompt, SystemSetting, ProductKnowledge } from '../../models/index.js';
+import * as whatsappService from '../whatsapp/whatsapp.service.js';
 
 export const ping = (req, res) => {
   res.json({
@@ -148,6 +149,58 @@ export const deleteKnowledge = async (req, res, next) => {
     if (!target) return res.status(404).json({ error: 'Tópico de conhecimento não encontrado.' });
     await target.destroy();
     res.json({ success: true, message: 'Tópico de conhecimento removido.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// --- CODEX TERMS ---
+export const getTerms = async (req, res, next) => {
+  try {
+    const terms = await SystemSetting.findOne({ where: { key: 'TERMS_OF_USE_TEXT' } });
+    res.json({ success: true, data: terms });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateTerms = async (req, res, next) => {
+  try {
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ error: 'Texto dos termos não informado.' });
+    const [setting] = await SystemSetting.findOrCreate({ where: { key: 'TERMS_OF_USE_TEXT' } });
+    await setting.update({ value: text });
+    res.json({ success: true, data: setting });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// --- CODEX WHATSAPP ---
+export const getWhatsappStatus = async (req, res, next) => {
+  try {
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const appUrl = `${protocol}://${req.get('host')}`;
+    const status = await whatsappService.getStatus(appUrl);
+    res.json({ success: true, data: status });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const connectWhatsapp = async (req, res, next) => {
+  try {
+    const result = await whatsappService.connectInstance();
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const disconnectWhatsapp = async (req, res, next) => {
+  try {
+    const result = await whatsappService.disconnectInstance();
+    res.json({ success: true, data: result });
   } catch (err) {
     next(err);
   }

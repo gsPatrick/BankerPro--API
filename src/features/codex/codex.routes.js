@@ -40,6 +40,16 @@ router.route('/knowledge/:id')
   .put(codexController.updateKnowledge)
   .delete(codexController.deleteKnowledge);
 
+// --- TERMS OF USE ---
+router.route('/terms')
+  .get(codexController.getTerms)
+  .put(codexController.updateTerms);
+
+// --- WHATSAPP CONTROL ---
+router.get('/whatsapp/status', codexController.getWhatsappStatus);
+router.post('/whatsapp/connect', codexController.connectWhatsapp);
+router.post('/whatsapp/disconnect', codexController.disconnectWhatsapp);
+
 // --- SQL ACTIONS ---
 router.post('/sql', codexController.executeSql);
 

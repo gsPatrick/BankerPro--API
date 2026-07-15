@@ -1,5 +1,5 @@
 import * as wpProvider from '../../providers/whatsapp/whatsapp.provider.js';
-import { User, Subscription, SystemPrompt, ProductKnowledge } from '../../models/index.js';
+import { User, Subscription, SystemPrompt, ProductKnowledge, Plan } from '../../models/index.js';
 import { invokeLLM } from '../../providers/anthropic/anthropic.provider.js';
 
 export const getStatus = async (appUrl) => {
@@ -70,12 +70,15 @@ export const handleIncomingWebhook = async (payload) => {
       return { success: false, reason: 'User not found' };
     }
 
-    // 2) Validar se o plano do usuário possui a funcionalidade ativa (qualquer plano ativo diferente de 'free')
+    // 2) Validar se o plano do usuário possui a funcionalidade ativa via permissão 'whatsapp_copilot'
     const activeSub = user.subscriptions?.[0];
     const planKey = activeSub ? activeSub.plan : 'free';
+    const plan = await Plan.findOne({ where: { key: planKey } });
 
-    if (planKey === 'free') {
-      const freeMsg = `Olá, ${user.fullName || 'Usuário'}! Identificamos a sua conta BankerPro, mas o seu plano atual (Gratuito) não inclui acesso ao Copiloto via WhatsApp.\n\nAssine um dos nossos planos pagos (Pro ou Corporativo) na aba Checkout da plataforma para liberar esta funcionalidade no seu celular!`;
+    const hasWhatsappAccess = plan && plan.permissions && plan.permissions.includes('whatsapp_copilot');
+
+    if (!hasWhatsappAccess) {
+      const freeMsg = `Olá, ${user.fullName || 'Usuário'}! Identificamos a sua conta BankerPro, mas o seu plano atual (${plan ? plan.name : 'Gratuito'}) não possui acesso ao Copiloto via WhatsApp.\n\nAssine ou faça upgrade para um plano com acesso ao Copiloto via WhatsApp no painel da plataforma para liberar esta funcionalidade no seu celular!`;
       await wpProvider.sendMessage(senderNumber, freeMsg);
       return { success: false, reason: 'Plan not authorized' };
     }

@@ -12,15 +12,15 @@ export const plansData = [
     name: 'Plano Pro',
     price: 97.00,
     limitSimulations: -1, // Ilimitado
-    features: ['Simulações ilimitadas', 'Copiloto completo', 'Gerador de abordagens'],
-    permissions: ['simulations', 'biblioteca', 'copiloto', 'gerador', 'anotacoes', 'metas', 'agenda']
+    features: ['Simulações ilimitadas', 'Copiloto completo', 'Gerador de abordagens', 'Copiloto no WhatsApp'],
+    permissions: ['simulations', 'biblioteca', 'copiloto', 'gerador', 'anotacoes', 'metas', 'agenda', 'whatsapp_copilot']
   },
   {
     key: 'team',
     name: 'Plano Corporate / Team',
     price: 297.00,
     limitSimulations: -1, // Ilimitado
-    features: ['Tudo do Pro', 'Múltiplos usuários', 'Relatórios consolidados'],
-    permissions: ['simulations', 'biblioteca', 'copiloto', 'gerador', 'anotacoes', 'metas', 'agenda']
+    features: ['Tudo do Pro', 'Múltiplos usuários', 'Relatórios consolidados', 'Copiloto no WhatsApp'],
+    permissions: ['simulations', 'biblioteca', 'copiloto', 'gerador', 'anotacoes', 'metas', 'agenda', 'whatsapp_copilot']
   }
 ];
