@@ -12,6 +12,7 @@ import {
   User,
   UserProfile,
   Plan,
+  Subscription,
   Scenario,
   ProductKnowledge,
   SystemPrompt,
@@ -113,7 +114,12 @@ async function bootDatabase() {
     for (const plan of plansData) {
       await Plan.upsert(plan);
     }
-    // Remover planos obsoletos
+    // Remover planos obsoletos e suas inscrições associadas para evitar quebra de FK
+    await Subscription.destroy({
+      where: {
+        plan: ['free', 'standard_monthly', 'premium_monthly', 'team']
+      }
+    });
     await Plan.destroy({
       where: {
         key: ['free', 'standard_monthly', 'premium_monthly', 'team']
