@@ -58,13 +58,64 @@ Permite que a IA verifique se as credenciais de autenticação estão válidas e
 
 Permite que a IA adicione novos cenários ou edite os perfis de clientes de teste existentes.
 
+Tabela: `scenarios`
+
+> [!IMPORTANT]
+> Os campos são enviados **exatamente** com os nomes abaixo, em camelCase. O endpoint de cenários **não** faz conversão de nomes: um campo com nome errado é **ignorado em silêncio** (no `POST` isso derruba a criação se o campo for obrigatório; no `PUT` a requisição retorna sucesso sem alterar nada).
+
+#### 📋 Campos do cenário
+
+| Campo | Tipo | Obrigatório | Observação |
+|---|---|---|---|
+| `title` | texto | ✅ | Título do cenário |
+| `category` | texto | ✅ | Precisa ser um dos valores válidos (ver abaixo) |
+| `difficulty` | texto | ✅ | `Iniciante`, `Intermediário` ou `Avançado` |
+| `clientName` | texto | ✅ | Nome do cliente simulado |
+| `clientPersona` | texto | ✅ | Personalidade/comportamento do cliente na simulação |
+| `openingMessage` | texto | ✅ | Primeira fala do cliente ao abrir a simulação |
+| `description` | texto | — | Resumo da situação |
+| `clientAge` | número | — | Idade do cliente |
+| `clientProfile` | texto | — | Perfil financeiro / relacionamento com o banco |
+| `userObjective` | texto | — | O que o bancário precisa alcançar |
+| `commercialClues` | texto | — | Pistas que o cliente revela se questionado |
+| `mainProduct` | texto | — | Produto principal do cenário |
+| `supportProducts` | texto | — | Produtos de apoio |
+| `evaluationCriteria` | texto | — | Critérios de avaliação do desempenho |
+| `tags` | array de texto | — | Padrão: `[]` |
+
+* **Categorias válidas (`category`):** `Caixa e Balcão`, `Mesa Comercial`, `Conta e Relacionamento`, `Crédito Disponível`, `Sem Crédito Disponível`, `Produto Já Contratado`, `Aposentado/Consignado`, `Cartão`, `MEI/Pequeno Negócio`
+* **Dificuldades válidas (`difficulty`):** `Iniciante`, `Intermediário`, `Avançado`
+
 #### 🔹 Listar todos os cenários
 * **Método:** `GET`
 * **Endpoint:** `/scenarios`
+* **Ordenação:** do mais recente para o mais antigo.
 * **Exemplo de Chamada (curl):**
   ```bash
   curl -H "X-Codex-Token: seu_token" https://bankerpro-bankerpro--api.wohb2u.easypanel.host/api/v1/codex/scenarios
   ```
+* **Exemplo de Retorno (JSON):**
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": "uuid-...",
+        "title": "Renegociação de financiamento imobiliário",
+        "category": "Crédito Disponível",
+        "difficulty": "Intermediário",
+        "clientName": "Roberto Silva",
+        "clientAge": 42,
+        "clientPersona": "Desconfiado, pragmático, não gosta de enrolação.",
+        "openingMessage": "Olha, eu só quero entender por que a minha parcela subiu.",
+        "tags": [],
+        "created_at": "2026-07-16T12:00:00.000Z",
+        "updated_at": "2026-07-16T12:00:00.000Z"
+      }
+    ]
+  }
+  ```
+  > **Atenção:** os campos do cenário vêm em camelCase, mas os carimbos de data/hora vêm em snake_case (`created_at` / `updated_at`). Isso vale para todos os recursos da API.
 
 #### 🔹 Criar um novo cenário
 * **Método:** `POST`
@@ -72,14 +123,21 @@ Permite que a IA adicione novos cenários ou edite os perfis de clientes de test
 * **Body (JSON):**
   ```json
   {
-    "title": "Financiamento Imobiliário Atrasado",
-    "category": "Crédito",
-    "difficultyLevel": "Intermediário",
+    "title": "Renegociação de financiamento imobiliário",
+    "category": "Crédito Disponível",
+    "difficulty": "Intermediário",
     "clientName": "Roberto Silva",
     "clientAge": 42,
     "clientPersona": "Desconfiado, pragmático, não gosta de enrolação.",
+    "openingMessage": "Olha, eu só quero entender por que a minha parcela subiu.",
     "description": "Roberto quer renegociar uma parcela mas tem medo de pagar juros abusivos.",
-    "commercialClues": "Se perguntado sobre a família, vai revelar que tem dois filhos em escola privada."
+    "clientProfile": "Cliente há 8 anos, financiamento ativo, sem atraso até agora.",
+    "userObjective": "Reconstruir a confiança e apresentar a renegociação sem parecer venda.",
+    "commercialClues": "Se perguntado sobre a família, vai revelar que tem dois filhos em escola privada.",
+    "mainProduct": "Financiamento",
+    "supportProducts": "Seguro de Vida",
+    "evaluationCriteria": "Acolheu a objeção antes de ofertar? Explicou os juros com clareza?",
+    "tags": ["financiamento", "renegociação"]
   }
   ```
 
@@ -89,7 +147,7 @@ Permite que a IA adicione novos cenários ou edite os perfis de clientes de test
 * **Body (JSON):** *(Envie apenas os campos que deseja atualizar)*
   ```json
   {
-    "difficultyLevel": "Avançado"
+    "difficulty": "Avançado"
   }
   ```
 
@@ -365,6 +423,13 @@ Recursos principais:
 Produtos válidos em opportunities: Consórcio, Financiamento, Empréstimo, Consignado, Cartão de Crédito, Seguro de Vida, Capitalização.
 Canais: Ligação, WhatsApp, Presencial. Status: Ativo | Inativo.
 Não recomendar investimentos; saldo/aplicação só como contexto de perfil.
+
+Em scenarios, os nomes dos campos são exatos e não há conversão automática — campo com nome errado é ignorado em silêncio.
+Obrigatórios: title, category, difficulty, clientName, clientPersona, openingMessage.
+category: Caixa e Balcão | Mesa Comercial | Conta e Relacionamento | Crédito Disponível | Sem Crédito Disponível | Produto Já Contratado | Aposentado/Consignado | Cartão | MEI/Pequeno Negócio.
+difficulty: Iniciante | Intermediário | Avançado (o campo chama-se difficulty, NÃO difficultyLevel).
+Opcionais: description, clientAge, clientProfile, userObjective, commercialClues, mainProduct, supportProducts, evaluationCriteria, tags.
+Nas respostas, os campos vêm em camelCase, mas as datas vêm como created_at e updated_at.
 
 Quando eu pedir para criar roteiros/opportunities, cenários ou alterar prompts, formule e execute a requisição HTTP (curl) e mostre o resultado com clareza.
 ```
