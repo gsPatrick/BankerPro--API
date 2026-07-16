@@ -13,7 +13,7 @@ export const ping = (req, res) => {
 
 export const listScenarios = async (req, res, next) => {
   try {
-    const list = await Scenario.findAll({ order: [['createdAt', 'DESC']] });
+    const list = await Scenario.findAll({ order: [['created_at', 'DESC']] });
     res.json({ success: true, data: list });
   } catch (err) {
     next(err);

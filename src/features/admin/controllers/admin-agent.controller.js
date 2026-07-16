@@ -149,7 +149,7 @@ Seja prestativo, eficiente e aja exatamente como um agente de execução (action
             const { action, id: scenarioId, fields } = input;
 
             if (action === 'list') {
-              const list = await Scenario.findAll({ order: [['createdAt', 'DESC']] });
+              const list = await Scenario.findAll({ order: [['created_at', 'DESC']] });
               resultData = JSON.stringify(list);
             } else if (action === 'create') {
               const newScenario = await Scenario.create(fields);

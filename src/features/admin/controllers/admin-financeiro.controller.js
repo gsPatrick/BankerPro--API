@@ -19,7 +19,7 @@ export const getFinancialSummary = async (req, res, next) => {
           attributes: ['key', 'name', 'price']
         }
       ],
-      order: [['createdAt', 'DESC']]
+      order: [['created_at', 'DESC']]
     });
 
     // 2. Calculate summary statistics
@@ -60,7 +60,7 @@ export const getFinancialSummary = async (req, res, next) => {
         paymentMethod: sub.paymentMethod || 'Manual',
         startsAt: sub.startsAt,
         endsAt: sub.endsAt,
-        createdAt: sub.createdAt
+        createdAt: sub.created_at
       }))
     };
 

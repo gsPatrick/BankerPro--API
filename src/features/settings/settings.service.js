@@ -5,7 +5,7 @@ import { parseUserAgent } from '../../utils/user-agent.js';
 export const listSessions = async (userId) => {
   const rows = await UserDeviceSession.findAll({
     where: { userId },
-    order: [['lastSeenAt', 'DESC'], ['createdAt', 'DESC']]
+    order: [['lastSeenAt', 'DESC'], ['created_at', 'DESC']]
   });
   return rows;
 };
