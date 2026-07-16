@@ -66,6 +66,7 @@ export const PlanFeatures = [
   { key: 'copiloto', label: 'Copiloto IA' },
   { key: 'oportunidades', label: 'Lista de Oportunidades' },
   { key: 'gerador', label: 'Gerador de abordagens' },
+  { key: 'analise_audio', label: 'Análise de Áudio' },
   { key: 'whatsapp_copilot', label: 'Copiloto no WhatsApp' }
 ];
 

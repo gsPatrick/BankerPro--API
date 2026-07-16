@@ -17,6 +17,7 @@ import adminRoutes from '../features/admin/admin.routes.js';
 import codexRoutes from '../features/codex/codex.routes.js';
 import whatsappRoutes from '../features/whatsapp/whatsapp.routes.js';
 import uploadRoutes from '../features/upload/upload.routes.js';
+import audioAnalysisRoutes from '../features/audio-analysis/audio-analysis.routes.js';
 import { requireAuth } from '../middlewares/auth.middleware.js';
 import * as authController from '../features/auth/auth.controller.js';
 import * as aiController from '../features/ai/ai.controller.js';
@@ -58,6 +59,9 @@ router.use('/achievements', achievementRoutes);
 router.use('/achievement', achievementRoutes);
 
 router.use('/ai', aiRoutes);
+
+router.use('/audio-analysis', audioAnalysisRoutes);
+router.use('/audio-analyses', audioAnalysisRoutes);
 
 router.use('/subscription', subscriptionRoutes);
 router.use('/subscriptions', subscriptionRoutes);

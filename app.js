@@ -193,6 +193,20 @@ async function bootDatabase() {
       console.log(`🌱 Plano interno vinculado ao admin ${admin.email}.`);
     }
 
+    // Garantir que prompts novos cheguem a bases já existentes. O seed acima só
+    // roda em banco vazio, então sem isto um prompt adicionado depois nunca
+    // existiria em produção. Só cria o que falta: o texto editado pelo admin
+    // nunca é sobrescrito.
+    for (const prompt of promptsData) {
+      const [, created] = await SystemPrompt.findOrCreate({
+        where: { key: prompt.key },
+        defaults: prompt
+      });
+      if (created) {
+        console.log(`🌱 Prompt "${prompt.key}" criado.`);
+      }
+    }
+
     // Garantir seed de oportunidades em bases já existentes
     const opportunityCount = await CommercialOpportunity.count();
     if (opportunityCount === 0) {

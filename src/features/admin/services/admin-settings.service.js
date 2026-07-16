@@ -5,6 +5,9 @@ export const listSettings = async () => {
     'MP_ACCESS_TOKEN',
     'MP_PUBLIC_KEY',
     'ANTHROPIC_API_KEY',
+    // Usada só para transcrever o áudio da Análise de Áudio: a API da Anthropic
+    // não recebe som. Toda a análise continua no Claude.
+    'OPENAI_API_KEY',
     'EVOLUTION_API_URL',
     'EVOLUTION_API_KEY',
     'TERMS_OF_USE_TEXT'

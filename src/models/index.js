@@ -19,6 +19,7 @@ import Plan from './Plan.js';
 import SystemPrompt from './SystemPrompt.js';
 import SystemSetting from './SystemSetting.js';
 import UserDeviceSession from './UserDeviceSession.js';
+import AudioAnalysis from './AudioAnalysis.js';
 
 const env = process.env.NODE_ENV || 'development';
 const config = databaseConfig[env];
@@ -47,7 +48,8 @@ const db = {
   Plan,
   SystemPrompt,
   SystemSetting,
-  UserDeviceSession
+  UserDeviceSession,
+  AudioAnalysis
 };
 
 // Initialize all models
@@ -86,7 +88,8 @@ export {
   Plan,
   SystemPrompt,
   SystemSetting,
-  UserDeviceSession
+  UserDeviceSession,
+  AudioAnalysis
 };
 
 export default db;

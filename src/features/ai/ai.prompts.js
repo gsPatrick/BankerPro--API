@@ -379,3 +379,34 @@ Siga exatamente a estrutura abaixo em Markdown no retorno:
 ⛔ Não use linguagem proibida de investimentos (ex: investir, investimento, rentabilidade, poupança, CDB, renda fixa, fundo). Substitua por aplicar recursos, planejamento, benefício, guardar dinheiro.
 ⛔ Retorne apenas o texto formatado final, sem observações adicionais.`;
 };
+
+export const getAudioAnalysisPrompt = async ({ transcricao, produtosIdentificados, contexto }) => {
+  const dbPrompt = await SystemPrompt.findOne({ where: { key: 'audio_analysis' } });
+
+  const variables = {
+    transcricao,
+    produtos_identificados: produtosIdentificados || 'Nenhum produto identificado explicitamente.',
+    contexto: contexto || 'Nenhum contexto adicional informado.'
+  };
+
+  if (dbPrompt && dbPrompt.content) {
+    return interpolate(dbPrompt.content, variables);
+  }
+
+  // Fallback mínimo. O prompt real vive no banco (key audio_analysis) e é
+  // editável pelo admin; isto só evita quebrar caso a linha suma da tabela.
+  return `Você é um treinador comercial especializado em atendimento bancário. Analise a transcrição de uma negociação e avalie a QUALIDADE DA CONVERSA COMERCIAL, nunca aspectos técnicos do produto (taxa, parcela, renda, margem, prazo, viabilidade). Não mencione compliance nem LGPD.
+
+Estruture a resposta em: 1. Resumo da negociação; 2. Nota geral (formato "Nota: X/10"); 3. O que foi bem feito; 4. Onde a negociação travou; 5. Por que o cliente não fechou ou não avançou; 6. O que poderia ter sido melhor; 7. Melhor fala sugerida; 8. Próximo passo recomendado; 9. Leitura geral do atendimento.
+
+Seja direto, humano e prático, como um gerente comercial dando feedback. Não invente o que não está na conversa. Se a transcrição estiver ruim, diga que a análise pode estar limitada.
+
+Transcrição da conversa:
+${variables.transcricao}
+
+Produtos identificados, se houver:
+${variables.produtos_identificados}
+
+Contexto opcional:
+${variables.contexto}`;
+};
