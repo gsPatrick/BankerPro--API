@@ -1,7 +1,16 @@
 import { Plan, Subscription } from '../../../models/index.js';
 import { PlanFeatureKeys } from '../../../config/constants.js';
 import { invalidatePlanCache } from '../../../utils/plan-cache.js';
+import { invalidateCache } from '../../../utils/redis-cache.js';
+import { PLANS_PUBLIC_CACHE_KEY } from '../../subscription/subscription.service.js';
 import AppError from '../../../utils/app-error.js';
+
+// Uma mudança em plano invalida os dois caches: o de plano-por-key (permissões,
+// em memória) e o da lista pública de planos (cards, no Redis).
+const invalidarPlano = (key) => {
+  invalidatePlanCache(key);
+  invalidateCache(PLANS_PUBLIC_CACHE_KEY);
+};
 
 // permissions é o que libera as telas de verdade: uma key inexistente aqui vira
 // uma funcionalidade que nunca abre, sem erro nenhum aparecer.
@@ -35,7 +44,7 @@ export const createPlan = async (data) => {
   assertValidPermissions(data.permissions);
 
   const plan = await Plan.create(data);
-  invalidatePlanCache(plan.key);
+  invalidarPlano(plan.key);
   return plan;
 };
 
@@ -55,7 +64,7 @@ export const updatePlan = async (id, data) => {
   });
 
   await plan.save();
-  invalidatePlanCache(plan.key);
+  invalidarPlano(plan.key);
   return plan;
 };
 
@@ -78,6 +87,6 @@ export const deletePlan = async (id) => {
   }
 
   await plan.destroy();
-  invalidatePlanCache(plan.key);
+  invalidarPlano(plan.key);
   return { success: true };
 };

@@ -53,3 +53,44 @@ export const closeRedisConnection = async () => {
     connection = null;
   }
 };
+
+/**
+ * Conexão SEPARADA para o cache de leituras. Não compartilha com a fila porque o
+ * BullMQ usa comandos bloqueantes na conexão dele. Configurada para FALHAR RÁPIDO
+ * (`enableOfflineQueue: false`): se o Redis estiver fora, o comando erra na hora e
+ * quem chama cai no banco, em vez de ficar pendurado esperando reconexão.
+ */
+let cacheConnection = null;
+
+export const getCacheConnection = () => {
+  if (!isQueueEnabled()) return null;
+  if (cacheConnection) return cacheConnection;
+
+  const options = {
+    maxRetriesPerRequest: 1,
+    enableOfflineQueue: false,
+    enableReadyCheck: false
+  };
+
+  cacheConnection = process.env.REDIS_URL
+    ? new IORedis(process.env.REDIS_URL, options)
+    : new IORedis({
+        host: process.env.REDIS_HOST,
+        port: parseInt(process.env.REDIS_PORT || '6379', 10),
+        password: process.env.REDIS_PASSWORD || undefined,
+        ...options
+      });
+
+  cacheConnection.on('error', (err) => {
+    console.error('⚠️ Erro na conexão com o Redis (cache):', err.message);
+  });
+
+  return cacheConnection;
+};
+
+export const closeCacheConnection = async () => {
+  if (cacheConnection) {
+    await cacheConnection.quit().catch(() => {});
+    cacheConnection = null;
+  }
+};

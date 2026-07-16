@@ -10,7 +10,7 @@ import bcrypt from 'bcryptjs';
 import apiRouter from './src/routes/index.js';
 import errorMiddleware from './src/middlewares/error.middleware.js';
 import { toCamelCase } from './src/utils/case-converter.js';
-import { isQueueEnabled, closeRedisConnection } from './src/config/redis.js';
+import { isQueueEnabled, closeRedisConnection, closeCacheConnection } from './src/config/redis.js';
 import { startAudioWorker, stopAudioWorker } from './src/workers/audio.worker.js';
 import { closeAudioQueue } from './src/queues/audio.queue.js';
 import {
@@ -319,6 +319,7 @@ const gracefulShutdown = async (signal) => {
     await stopAudioWorker();
     await closeAudioQueue();
     await closeRedisConnection();
+    await closeCacheConnection();
   } catch (err) {
     console.error('Erro durante o encerramento:', err.message);
   }

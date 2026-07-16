@@ -4,21 +4,25 @@ import * as mpProvider from '../../providers/mercadopago/mercadopago.provider.js
 import AppError from '../../utils/app-error.js';
 import { getSettingValue } from '../../utils/settings-resolver.js';
 import { INTERNAL_PLAN_PREFIX, isInternalPlanKey, buildPlanFeatures } from '../../config/constants.js';
+import { cacheRead } from '../../utils/redis-cache.js';
 
-export const listPlans = async () => {
-  const plans = await Plan.findAll({
-    where: {
-      key: { [Op.notLike]: `${INTERNAL_PLAN_PREFIX}%` }
-    },
-    order: [['price', 'ASC']]
-  });
+export const PLANS_PUBLIC_CACHE_KEY = 'plans:public';
 
-  return plans.map((row) => {
-    const plan = row.toJSON();
-    plan.features = buildPlanFeatures(plan);
-    return plan;
+export const listPlans = async () =>
+  cacheRead(PLANS_PUBLIC_CACHE_KEY, 120, async () => {
+    const plans = await Plan.findAll({
+      where: {
+        key: { [Op.notLike]: `${INTERNAL_PLAN_PREFIX}%` }
+      },
+      order: [['price', 'ASC']]
+    });
+
+    return plans.map((row) => {
+      const plan = row.toJSON();
+      plan.features = buildPlanFeatures(plan);
+      return plan;
+    });
   });
-};
 
 export const getSubscriptionByUserId = async (userId) => {
   const sub = await Subscription.findOne({
