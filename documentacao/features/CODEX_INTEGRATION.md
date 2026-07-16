@@ -168,7 +168,19 @@ Permite alterar as regras de comportamento do Simulador de Clientes e do Copilot
 #### 🔹 Atualizar instrução de um prompt específico
 * **Método:** `PUT`
 * **Endpoint:** `/prompts/:key`
-* **Parâmetro `key`:** `simulation_client` (comportamento do cliente) ou `simulation_copilot` (instruções do copiloto).
+* **Keys existentes:**
+
+| Key | O que controla |
+|---|---|
+| `simulation_chat` | Como o cliente simulado se comporta na simulação |
+| `simulation_evaluate` | A avaliação e a nota ao fim da simulação |
+| `simulation_extract_learning` | O aprendizado comercial extraído da simulação |
+| `copiloto_analyze` | O plano de negociação do Copiloto IA |
+| `approach_generate` | O Gerador de abordagens |
+| `knowledge_polish` | O polimento dos tópicos da base de conhecimento |
+| `audio_analysis` | A **Análise de Negociação por Áudio** (ver seção 10) |
+
+> Rode `GET /prompts` para conferir as keys existentes antes de atualizar: uma key errada retorna 404 e nada é alterado.
 * **Body (JSON):**
   ```json
   {
@@ -433,6 +445,7 @@ Tabela: `plans`
 | `copiloto` | Copiloto IA |
 | `oportunidades` | Lista de Oportunidades |
 | `gerador` | Gerador de abordagens |
+| `analise_audio` | Análise de Áudio (painel e WhatsApp) |
 | `whatsapp_copilot` | Copiloto no WhatsApp |
 
 Painel, Perfil, Configurações e Planos são sempre liberados e não têm key — bloquear a tela de Planos impediria o próprio upgrade.
@@ -503,6 +516,70 @@ Sempre disponível na API, para não depender desta tabela ficar atualizada.
 
 ---
 
+### 10. Análise de Negociação por Áudio
+
+O usuário grava ou envia o áudio de um atendimento real — pelo painel ou pelo WhatsApp — e recebe o feedback de um treinador comercial. Fica salvo no histórico dele.
+
+**Não há endpoint de áudio no Codex**, e isso é proposital: o áudio pertence ao usuário e a análise é gravada na conta dele. O que o Codex controla aqui é o **prompt** e a **permissão de plano**.
+
+#### Como funciona por dentro
+
+| Etapa | Onde roda |
+|---|---|
+| 1. Recebe o áudio | Painel (`POST /api/v1/audio-analysis`) ou webhook do WhatsApp |
+| 2. Transcreve | **OpenAI Whisper** — a API da Anthropic aceita texto, imagem e PDF, mas **não recebe áudio** |
+| 3. Analisa a transcrição | **Claude**, com o prompt `audio_analysis` |
+| 4. Salva o histórico | Tabela `audio_analyses` |
+
+O arquivo de áudio é **apagado assim que a transcrição sai** — é gravação de negociação real com cliente e não fica parada no servidor. O que persiste é a transcrição e a análise.
+
+#### 🔹 Ajustar o comportamento da análise
+É o prompt `audio_analysis`, editável como qualquer outro:
+
+```bash
+curl -H "X-Codex-Token: seu_token" \
+  https://bankerpro-bankerpro--api.wohb2u.easypanel.host/api/v1/codex/prompts
+```
+
+Variáveis disponíveis no template:
+
+| Variável | Conteúdo |
+|---|---|
+| `{{transcricao}}` | A conversa transcrita. **Obrigatória** — sem ela a IA analisa o vazio |
+| `{{produtos_identificados}}` | Categorias da base de conhecimento citadas no áudio, se houver |
+| `{{contexto}}` | Contexto opcional informado pelo usuário |
+
+> [!IMPORTANT]
+> **A análise é sobre a qualidade da conversa comercial, não sobre o produto.** O prompt proíbe explicitamente entrar em taxa, parcela, renda, margem, prazo, viabilidade financeira, compliance e LGPD. Ao editar, preserve essas proibições — elas são a regra de negócio da funcionalidade, não enfeite.
+>
+> Exemplo do que **não** deve sair: *"O cliente não fechou porque a parcela ficou alta para a renda dele."*
+> Exemplo do que **deve** sair: *"O cliente demonstrou resistência quando percebeu compromisso na proposta. Faltou investigar o motivo antes de insistir."*
+
+#### 🔹 Liberar a funcionalidade num plano
+A permissão é `analise_audio` (ver seção 9). Vale para os dois canais: sem ela, o painel bloqueia e o WhatsApp responde convidando ao upgrade.
+
+#### ⚙️ Configuração necessária
+A transcrição depende da chave `OPENAI_API_KEY`, cadastrada em `/settings` (ou no painel administrativo). Sem ela, a funcionalidade responde `TRANSCRIPTION_NOT_CONFIGURED` e nada é analisado.
+
+```json
+{
+  "key": "OPENAI_API_KEY",
+  "value": "sk-..."
+}
+```
+
+#### ⚠️ Erros específicos
+
+| Código | Quando acontece |
+|---|---|
+| `TRANSCRIPTION_NOT_CONFIGURED` | `OPENAI_API_KEY` não cadastrada |
+| `TRANSCRIPTION_UNAUTHORIZED` | A chave da OpenAI foi recusada |
+| `AUDIO_TOO_LARGE` | Áudio acima de 25MB (limite do Whisper) |
+| `AUDIO_EMPTY` | Não foi identificada fala no áudio |
+| `PLAN_FEATURE_DENIED` | O plano do usuário não inclui `analise_audio` |
+
+---
+
 ---
 
 ## 🤖 Snippet de Instrução para colar na sua IA Externa (Claude / GPT)
@@ -530,7 +607,9 @@ Canais: Ligação, WhatsApp, Presencial. Status: Ativo | Inativo.
 Não recomendar investimentos; saldo/aplicação só como contexto de perfil.
 
 Em plans, permissions é o que libera as telas do assinante. Use GET/POST /plans e PUT/DELETE /plans/:id — nunca SQL cru, que aceita key inválida sem erro.
-Keys válidas: cenarios, historico, ranking, carteira, agenda, metas, anotacoes, copiloto, oportunidades, gerador, whatsapp_copilot (confirme em GET /plans/features).
+Keys válidas: cenarios, historico, ranking, carteira, agenda, metas, anotacoes, copiloto, oportunidades, gerador, analise_audio, whatsapp_copilot (confirme em GET /plans/features).
+
+A Análise de Negociação por Áudio usa o prompt audio_analysis e a permissão analise_audio. O áudio é transcrito pelo Whisper (a Anthropic não recebe áudio) e analisado pelo Claude; o arquivo é apagado após a transcrição. A análise é sobre a QUALIDADE DA CONVERSA COMERCIAL: ao editar o prompt, mantenha as proibições de falar de taxa, parcela, renda, margem, prazo, viabilidade, compliance e LGPD. Requer a chave OPENAI_API_KEY em /settings.
 O campo features é legado e ignorado: o card do plano é montado a partir de permissions + limitSimulations.
 A key do plano precisa terminar em _monthly ou _yearly (é o sufixo que separa Mensal/Anual na landing) e nunca deve ser alterada depois de criada: subscriptions.plan aponta para ela.
 Plano novo nasce sem permissão nenhuma. Planos com prefixo admin_ são internos da equipe — não exponha nem ofereça.

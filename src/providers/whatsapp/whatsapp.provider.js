@@ -156,3 +156,45 @@ export const sendMessage = async (number, text) => {
     throw new AppError(`Falha ao enviar mensagem de WhatsApp: ${error.message}`, 500);
   }
 };
+
+/**
+ * Baixa a mídia de uma mensagem recebida. O webhook entrega só os metadados do
+ * áudio criptografado — os bytes precisam ser pedidos à Evolution, que descriptografa.
+ *
+ * @param {object} messageKey  o objeto `key` da mensagem, vindo do payload do webhook
+ * @returns {Promise<{buffer: Buffer, mimetype: string}>}
+ */
+export const downloadMedia = async (messageKey) => {
+  const { url, apiKey } = await getEvolutionConfig();
+
+  const response = await fetch(`${url}/chat/getBase64FromMediaMessage/copilot`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': apiKey
+    },
+    body: JSON.stringify({
+      message: { key: messageKey },
+      convertToMp4: false
+    })
+  });
+
+  if (!response.ok) {
+    const detalhe = await response.text().catch(() => '');
+    console.error('Erro ao baixar mídia do WhatsApp:', response.status, detalhe);
+    throw new AppError('Não foi possível baixar o áudio do WhatsApp.', 502, 'WHATSAPP_MEDIA_DOWNLOAD_FAILED');
+  }
+
+  const data = await response.json();
+  const base64 = data?.base64 || data?.media || data?.buffer;
+
+  if (!base64) {
+    console.error('Resposta inesperada ao baixar mídia do WhatsApp:', JSON.stringify(data).slice(0, 300));
+    throw new AppError('O áudio recebido veio vazio do WhatsApp.', 502, 'WHATSAPP_MEDIA_EMPTY');
+  }
+
+  return {
+    buffer: Buffer.from(base64, 'base64'),
+    mimetype: data?.mimetype || 'audio/ogg'
+  };
+};
