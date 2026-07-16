@@ -53,7 +53,13 @@ export default class Subscription extends Model {
       sequelize,
       tableName: 'subscriptions',
       underscored: true,
-      timestamps: true
+      timestamps: true,
+      // Toda request autenticada busca a assinatura ativa do usuário por
+      // (userId, status). É a query mais quente do sistema.
+      indexes: [
+        { fields: ['user_id', 'status'] },
+        { fields: ['plan'] }
+      ]
     });
   }
 

@@ -25,7 +25,10 @@ export default class Note extends Model {
       sequelize,
       tableName: 'notes',
       underscored: true,
-      timestamps: true
+      timestamps: true,
+      indexes: [
+        { fields: ['created_by_user_id', 'created_at'] }
+      ]
     });
   }
 

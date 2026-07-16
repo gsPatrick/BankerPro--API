@@ -39,7 +39,10 @@ export default class Goal extends Model {
       sequelize,
       tableName: 'goals',
       underscored: true,
-      timestamps: true
+      timestamps: true,
+      indexes: [
+        { fields: ['created_by_user_id'] }
+      ]
     });
   }
 

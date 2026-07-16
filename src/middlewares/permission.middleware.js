@@ -1,5 +1,5 @@
-import { Subscription, Plan } from '../models/index.js';
 import { getPlanFeatureLabel } from '../config/constants.js';
+import { getPlanByKey } from '../utils/plan-cache.js';
 import AppError from '../utils/app-error.js';
 import catchAsync from '../utils/catch-async.js';
 
@@ -19,9 +19,9 @@ export const requirePermission = (...featureKeys) =>
 
     const label = featureKeys.map(getPlanFeatureLabel).join(' ou ');
 
-    const subscription = await Subscription.findOne({
-      where: { userId: req.user.id, status: 'active' }
-    });
+    // O requireAuth já carregou a assinatura ativa do usuário; reusá-la evita
+    // repetir a mesma query em toda rota protegida por plano.
+    const subscription = req.user.subscriptions?.[0];
 
     if (!subscription) {
       return next(new AppError(
@@ -31,7 +31,7 @@ export const requirePermission = (...featureKeys) =>
       ));
     }
 
-    const plan = await Plan.findOne({ where: { key: subscription.plan } });
+    const plan = await getPlanByKey(subscription.plan);
     const permissions = Array.isArray(plan?.permissions) ? plan.permissions : [];
 
     if (!featureKeys.some((key) => permissions.includes(key))) {

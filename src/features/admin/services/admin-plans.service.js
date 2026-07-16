@@ -1,5 +1,6 @@
 import { Plan, Subscription } from '../../../models/index.js';
 import { PlanFeatureKeys } from '../../../config/constants.js';
+import { invalidatePlanCache } from '../../../utils/plan-cache.js';
 import AppError from '../../../utils/app-error.js';
 
 // permissions é o que libera as telas de verdade: uma key inexistente aqui vira
@@ -34,6 +35,7 @@ export const createPlan = async (data) => {
   assertValidPermissions(data.permissions);
 
   const plan = await Plan.create(data);
+  invalidatePlanCache(plan.key);
   return plan;
 };
 
@@ -53,6 +55,7 @@ export const updatePlan = async (id, data) => {
   });
 
   await plan.save();
+  invalidatePlanCache(plan.key);
   return plan;
 };
 
@@ -75,5 +78,6 @@ export const deletePlan = async (id) => {
   }
 
   await plan.destroy();
+  invalidatePlanCache(plan.key);
   return { success: true };
 };

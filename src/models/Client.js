@@ -65,6 +65,9 @@ export default class Client extends Model {
       sequelize,
       tableName: 'clients',
       underscored: true,
+      indexes: [
+        { fields: ['created_by_user_id', 'created_at'] }
+      ],
       timestamps: true
     });
   }

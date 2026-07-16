@@ -55,7 +55,10 @@ export default class AudioAnalysis extends Model {
       sequelize,
       tableName: 'audio_analyses',
       underscored: true,
-      timestamps: true
+      timestamps: true,
+      indexes: [
+        { fields: ['created_by_user_id', 'created_at'] }
+      ]
     });
   }
 

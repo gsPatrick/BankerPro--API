@@ -116,7 +116,12 @@ export default class UserProfile extends Model {
       sequelize,
       tableName: 'user_profiles',
       underscored: true,
-      timestamps: true
+      timestamps: true,
+      // O ranking ordena por XP com LIMIT: sem índice, ordena a tabela toda a
+      // cada abertura da tela.
+      indexes: [
+        { fields: ['xp_points'] }
+      ]
     });
   }
 

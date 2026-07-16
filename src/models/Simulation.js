@@ -94,7 +94,12 @@ export default class Simulation extends Model {
       sequelize,
       tableName: 'simulations',
       underscored: true,
-      timestamps: true
+      timestamps: true,
+      // O histórico e a contagem de limite filtram por dono e ordenam/filtram
+      // por data — sem este índice viram varredura da tabela inteira.
+      indexes: [
+        { fields: ['created_by_user_id', 'created_at'] }
+      ]
     });
   }
 

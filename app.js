@@ -1,3 +1,5 @@
+import cluster from 'node:cluster';
+import os from 'node:os';
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
@@ -256,13 +258,44 @@ O BankerPro é uma ferramenta de apoio. A responsabilidade pelo atendimento, ofe
 }
 
 // ─────────────────────────────────────────────────
-//  Iniciar servidor após preparar o banco
+//  Cluster: um processo por núcleo para usar a CPU inteira
 // ─────────────────────────────────────────────────
-bootDatabase().then(() => {
+// Um processo Node roda em um core só. Com o cluster, o primary prepara o banco
+// UMA vez e sobe N workers que atendem em paralelo. Os workers dividem o mesmo
+// disco (mesmo container), então o upload local continua funcionando entre eles.
+// Como só o primary roda o bootDatabase, o sync({ alter: true }) e os seeds
+// rodam uma vez, sem várias migrações concorrentes na mesma base.
+const WORKER_COUNT = Math.max(1, parseInt(process.env.WEB_CONCURRENCY || String(os.cpus().length), 10));
+
+const startServer = () => {
   app.listen(PORT, () => {
-    console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-    console.log(`📡 API endpoints mounted at ${API_PREFIX}`);
+    const quem = cluster.isPrimary ? 'servidor' : `worker ${process.pid}`;
+    console.log(`🚀 ${quem} rodando em modo ${process.env.NODE_ENV || 'development'} na porta ${PORT}`);
+    console.log(`📡 API montada em ${API_PREFIX}`);
   });
-});
+};
+
+if (WORKER_COUNT > 1 && cluster.isPrimary) {
+  // Primary: prepara o banco uma vez, depois sobe os workers.
+  bootDatabase().then(() => {
+    console.log(`🧩 Subindo ${WORKER_COUNT} workers...`);
+    for (let i = 0; i < WORKER_COUNT; i++) {
+      cluster.fork();
+    }
+
+    // Se um worker cair, sobe outro no lugar para não perder capacidade.
+    cluster.on('exit', (worker, code, signal) => {
+      console.error(`⚠️ Worker ${worker.process.pid} saiu (code ${code}, signal ${signal}). Recriando...`);
+      cluster.fork();
+    });
+  });
+} else if (WORKER_COUNT > 1) {
+  // Worker: o banco já foi preparado pelo primary; só atende requests.
+  startServer();
+} else {
+  // WEB_CONCURRENCY=1 (ex.: VPS de 1 core): mantém o comportamento de antes,
+  // um processo único que prepara o banco e serve.
+  bootDatabase().then(startServer);
+}
 
 export default app;

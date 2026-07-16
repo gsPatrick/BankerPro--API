@@ -1,4 +1,3 @@
-import { Op } from 'sequelize';
 import { Goal } from '../../models/index.js';
 import AppError from '../../utils/app-error.js';
 
@@ -11,32 +10,31 @@ export const currentPeriodMonth = () =>
     month: '2-digit'
   }).format(new Date());
 
-// As metas são mensais: virou o mês, o realizado zera e o alvo permanece.
-// O reset é feito na leitura, e não por agendamento, para que a virada aconteça
-// mesmo que a API estivesse fora do ar na passagem do mês.
-const syncGoalsPeriod = async (userId) => {
-  const period = currentPeriodMonth();
-
-  // Metas anteriores ao controle de competência adotam o mês atual sem perder
-  // o progresso já registrado.
-  await Goal.update(
-    { periodMonth: period },
-    { where: { createdByUserId: userId, periodMonth: null } }
-  );
-
-  await Goal.update(
-    { achieved: 0, periodMonth: period },
-    { where: { createdByUserId: userId, periodMonth: { [Op.ne]: period } } }
-  );
-};
-
 export const listGoals = async (userId) => {
-  await syncGoalsPeriod(userId);
+  const period = currentPeriodMonth();
 
   const goals = await Goal.findAll({
     where: { createdByUserId: userId },
     order: [['created_at', 'DESC']]
   });
+
+  // As metas são mensais: virou o mês, o realizado zera e o alvo permanece. O
+  // reset acontece na leitura (não por agendamento) para funcionar mesmo se a
+  // API estivesse fora do ar na virada. Antes isto disparava dois UPDATEs em
+  // TODA leitura; agora só grava as metas realmente vencidas — no caso comum
+  // (todas no mês corrente), zero escrita, e a leitura de metas volta a ser só
+  // leitura, o que importa quando ela é chamada o tempo todo por muitos usuários.
+  const vencidas = goals.filter((goal) => goal.periodMonth !== period);
+  if (vencidas.length > 0) {
+    await Promise.all(vencidas.map((goal) => {
+      // periodMonth nulo = meta anterior ao controle de competência: adota o mês
+      // atual sem perder o progresso. Mês antigo = virada real: zera o realizado.
+      if (goal.periodMonth) goal.achieved = 0;
+      goal.periodMonth = period;
+      return goal.save();
+    }));
+  }
+
   return goals;
 };
 
