@@ -1,5 +1,23 @@
 import { Plan } from '../../../models/index.js';
+import { PlanFeatureKeys } from '../../../config/constants.js';
 import AppError from '../../../utils/app-error.js';
+
+// permissions é o que libera as telas de verdade: uma key inexistente aqui vira
+// uma funcionalidade que nunca abre, sem erro nenhum aparecer.
+const assertValidPermissions = (permissions) => {
+  if (permissions === undefined) return;
+  if (!Array.isArray(permissions)) {
+    throw new AppError('permissions deve ser uma lista.', 400, 'BAD_REQUEST');
+  }
+  const invalid = permissions.filter((key) => !PlanFeatureKeys.includes(key));
+  if (invalid.length > 0) {
+    throw new AppError(
+      `Funcionalidade inexistente: ${invalid.join(', ')}. Válidas: ${PlanFeatureKeys.join(', ')}.`,
+      400,
+      'INVALID_PLAN_PERMISSION'
+    );
+  }
+};
 
 export const listPlans = async () => {
   return await Plan.findAll({
@@ -13,6 +31,8 @@ export const createPlan = async (data) => {
     throw new AppError(`Plano com a chave '${data.key}' já existe.`, 400, 'PLAN_ALREADY_EXISTS');
   }
 
+  assertValidPermissions(data.permissions);
+
   const plan = await Plan.create(data);
   return plan;
 };
@@ -23,7 +43,9 @@ export const updatePlan = async (id, data) => {
     throw new AppError('Plano não encontrado.', 404, 'PLAN_NOT_FOUND');
   }
 
-  const allowedFields = ['name', 'price', 'limitSimulations', 'features'];
+  assertValidPermissions(data.permissions);
+
+  const allowedFields = ['name', 'price', 'limitSimulations', 'features', 'permissions'];
   allowedFields.forEach((field) => {
     if (data[field] !== undefined) {
       plan[field] = data[field];

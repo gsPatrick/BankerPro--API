@@ -31,9 +31,12 @@ export default class Plan extends Model {
         type: DataTypes.ARRAY(DataTypes.STRING),
         defaultValue: []
       },
+      // Funcionalidades liberadas, conforme o catálogo PlanFeatures em
+      // config/constants.js. Plano novo nasce sem nada liberado: é o admin quem
+      // marca o que entra, e liberar por engano é pior do que faltar.
       permissions: {
         type: DataTypes.ARRAY(DataTypes.STRING),
-        defaultValue: ['simulations']
+        defaultValue: []
       }
     }, {
       sequelize,

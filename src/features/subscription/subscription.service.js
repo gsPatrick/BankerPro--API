@@ -3,7 +3,7 @@ import { Subscription, User, Plan } from '../../models/index.js';
 import * as mpProvider from '../../providers/mercadopago/mercadopago.provider.js';
 import AppError from '../../utils/app-error.js';
 import { getSettingValue } from '../../utils/settings-resolver.js';
-import { INTERNAL_PLAN_PREFIX, isInternalPlanKey } from '../../config/constants.js';
+import { INTERNAL_PLAN_PREFIX, isInternalPlanKey, buildPlanFeatures } from '../../config/constants.js';
 
 export const listPlans = async () => {
   const plans = await Plan.findAll({
@@ -12,7 +12,12 @@ export const listPlans = async () => {
     },
     order: [['price', 'ASC']]
   });
-  return plans;
+
+  return plans.map((row) => {
+    const plan = row.toJSON();
+    plan.features = buildPlanFeatures(plan);
+    return plan;
+  });
 };
 
 export const getSubscriptionByUserId = async (userId) => {

@@ -81,7 +81,9 @@ export const getMe = catchAsync(async (req, res, next) => {
     acceptedTermsAt: user.acceptedTermsAt || null,
     onboardingCompleted: Boolean(user.profile?.onboardingCompleted),
     avatarUrl: user.profile?.avatarUrl || null,
-    permissions: plan ? plan.permissions : ['simulations', 'biblioteca']
+    // Sem plano ativo não há funcionalidade liberada: o fallback antigo entregava
+    // keys que nem existem mais no catálogo.
+    permissions: Array.isArray(plan?.permissions) ? plan.permissions : []
   }, 'Dados do usuário autenticado.');
 });
 

@@ -1,16 +1,17 @@
 import { Router } from 'express';
 import * as aiController from './ai.controller.js';
 import { requireAuth, requireRole } from '../../middlewares/auth.middleware.js';
+import { requirePermission } from '../../middlewares/permission.middleware.js';
 
 const router = Router();
 
 router.use(requireAuth);
 
-router.post('/simulation/chat', aiController.simulationChat);
-router.post('/simulation/evaluate', aiController.simulationEvaluate);
-router.post('/simulation/extract-learning', aiController.simulationExtractLearning);
-router.post('/copiloto/analyze', aiController.copilotoAnalyze);
-router.post('/approach/generate', aiController.approachGenerate);
+router.post('/simulation/chat', requirePermission('cenarios'), aiController.simulationChat);
+router.post('/simulation/evaluate', requirePermission('cenarios'), aiController.simulationEvaluate);
+router.post('/simulation/extract-learning', requirePermission('cenarios'), aiController.simulationExtractLearning);
+router.post('/copiloto/analyze', requirePermission('copiloto'), aiController.copilotoAnalyze);
+router.post('/approach/generate', requirePermission('gerador'), aiController.approachGenerate);
 router.post('/knowledge/polish', requireRole('admin'), aiController.knowledgePolish);
 router.post('/invoke-llm', aiController.invokeLLM);
 
