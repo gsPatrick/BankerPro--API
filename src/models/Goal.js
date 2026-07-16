@@ -28,6 +28,12 @@ export default class Goal extends Model {
       achieved: {
         type: DataTypes.INTEGER,
         defaultValue: 0
+      },
+      // Mês de competência da meta no formato YYYY-MM. Quando o mês vira, o
+      // realizado zera e o alvo continua valendo para o mês novo.
+      periodMonth: {
+        type: DataTypes.STRING(7),
+        allowNull: true
       }
     }, {
       sequelize,
