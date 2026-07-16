@@ -4,11 +4,15 @@ import express from 'express';
 import path from 'path';
 import cors from 'cors';
 import morgan from 'morgan';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import apiRouter from './src/routes/index.js';
 import errorMiddleware from './src/middlewares/error.middleware.js';
 import { toCamelCase } from './src/utils/case-converter.js';
+import { isQueueEnabled, closeRedisConnection } from './src/config/redis.js';
+import { startAudioWorker, stopAudioWorker } from './src/workers/audio.worker.js';
+import { closeAudioQueue } from './src/queues/audio.queue.js';
 import {
   sequelize,
   User,
@@ -55,6 +59,9 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+// Comprime as respostas (gzip): payloads menores, mais rápidos para o cliente e
+// menos banda gasta.
+app.use(compression());
 app.use(express.json());
 app.use('/uploads', express.static(path.resolve('uploads')));
 
@@ -83,6 +90,20 @@ app.get('/', (req, res) => {
     description: 'BankerPro Backend API',
     status: 'online'
   });
+});
+
+// Health check que realmente verifica as dependências (banco e, se houver, fila).
+// Serve para o painel/monitor saber se a instância está saudável de verdade, não
+// só se o processo respondeu.
+app.get('/health', async (req, res) => {
+  const health = { status: 'ok', db: 'ok', queue: isQueueEnabled() ? 'enabled' : 'disabled' };
+  try {
+    await sequelize.authenticate();
+  } catch {
+    health.status = 'degraded';
+    health.db = 'down';
+  }
+  res.status(health.status === 'ok' ? 200 : 503).json(health);
 });
 
 // Tratamento de rotas não encontradas (excluindo favicon)
@@ -267,35 +288,73 @@ O BankerPro é uma ferramenta de apoio. A responsabilidade pelo atendimento, ofe
 // rodam uma vez, sem várias migrações concorrentes na mesma base.
 const WORKER_COUNT = Math.max(1, parseInt(process.env.WEB_CONCURRENCY || String(os.cpus().length), 10));
 
+let httpServer = null;
 const startServer = () => {
-  app.listen(PORT, () => {
+  httpServer = app.listen(PORT, () => {
     const quem = cluster.isPrimary ? 'servidor' : `worker ${process.pid}`;
     console.log(`🚀 ${quem} rodando em modo ${process.env.NODE_ENV || 'development'} na porta ${PORT}`);
     console.log(`📡 API montada em ${API_PREFIX}`);
   });
+  return httpServer;
 };
 
+// Desligamento gracioso: no redeploy o container recebe SIGTERM. Aqui paramos de
+// aceitar requests, drenamos os jobs de áudio em andamento e fechamos fila/Redis
+// antes de sair — assim uma análise em curso não é perdida no meio.
+let encerrando = false;
+const gracefulShutdown = async (signal) => {
+  if (encerrando) return;
+  encerrando = true;
+  console.log(`\n⏳ Encerrando (${signal})...`);
+
+  // Rede de segurança: se algo travar no shutdown, força a saída em 25s.
+  const forcar = setTimeout(() => {
+    console.error('⚠️ Timeout no encerramento; forçando saída.');
+    process.exit(1);
+  }, 25000);
+  forcar.unref();
+
+  try {
+    if (httpServer) await new Promise((resolve) => httpServer.close(resolve));
+    await stopAudioWorker();
+    await closeAudioQueue();
+    await closeRedisConnection();
+  } catch (err) {
+    console.error('Erro durante o encerramento:', err.message);
+  }
+  clearTimeout(forcar);
+  process.exit(0);
+};
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 if (WORKER_COUNT > 1 && cluster.isPrimary) {
-  // Primary: prepara o banco uma vez, depois sobe os workers.
+  // Primary: prepara o banco uma vez, roda o worker de fila (não atende HTTP,
+  // então o trabalho pesado não disputa com as requests) e sobe os web workers.
   bootDatabase().then(() => {
+    startAudioWorker();
     console.log(`🧩 Subindo ${WORKER_COUNT} workers...`);
     for (let i = 0; i < WORKER_COUNT; i++) {
       cluster.fork();
     }
 
-    // Se um worker cair, sobe outro no lugar para não perder capacidade.
+    // Se um worker cair, sobe outro no lugar — mas não durante o encerramento.
     cluster.on('exit', (worker, code, signal) => {
+      if (encerrando) return;
       console.error(`⚠️ Worker ${worker.process.pid} saiu (code ${code}, signal ${signal}). Recriando...`);
       cluster.fork();
     });
   });
 } else if (WORKER_COUNT > 1) {
-  // Worker: o banco já foi preparado pelo primary; só atende requests.
+  // Web worker: o banco já foi preparado pelo primary; só atende requests.
   startServer();
 } else {
-  // WEB_CONCURRENCY=1 (ex.: VPS de 1 core): mantém o comportamento de antes,
-  // um processo único que prepara o banco e serve.
-  bootDatabase().then(startServer);
+  // WEB_CONCURRENCY=1 (ex.: VPS de 1 core): um processo único prepara o banco,
+  // roda o worker de fila e serve.
+  bootDatabase().then(() => {
+    startAudioWorker();
+    startServer();
+  });
 }
 
 export default app;

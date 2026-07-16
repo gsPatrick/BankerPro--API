@@ -8,6 +8,20 @@
  * `Date.now()` não é usado em nenhum outro lugar do projeto; aqui é aceitável
  * porque é só medição de validade de cache, não lógica de negócio.
  */
+/**
+ * Cache de valor único, para dados sem chave (ex.: a base de conhecimento
+ * inteira). `holder` é um objeto { data, expires } que o chamador mantém.
+ */
+export const getCached = async (holder, ttlMs, loader) => {
+  if (holder.data !== null && holder.data !== undefined && holder.expires > Date.now()) {
+    return holder.data;
+  }
+  const value = await loader();
+  holder.data = value;
+  holder.expires = Date.now() + ttlMs;
+  return value;
+};
+
 export const createTtlCache = (ttlMs) => {
   const store = new Map();
 

@@ -19,6 +19,7 @@ import whatsappRoutes from '../features/whatsapp/whatsapp.routes.js';
 import uploadRoutes from '../features/upload/upload.routes.js';
 import audioAnalysisRoutes from '../features/audio-analysis/audio-analysis.routes.js';
 import { requireAuth } from '../middlewares/auth.middleware.js';
+import { aiRateLimit } from '../middlewares/rate-limit.middleware.js';
 import * as authController from '../features/auth/auth.controller.js';
 import * as aiController from '../features/ai/ai.controller.js';
 
@@ -29,8 +30,8 @@ router.use('/auth', authRoutes);
 router.get('/users', requireAuth, authController.getUsersList);
 router.get('/user', requireAuth, authController.getUsersList);
 
-router.post('/integrations/core/invoke-llm', requireAuth, aiController.invokeLLM);
-router.post('/integrations/core/invoke_llm', requireAuth, aiController.invokeLLM);
+router.post('/integrations/core/invoke-llm', requireAuth, aiRateLimit, aiController.invokeLLM);
+router.post('/integrations/core/invoke_llm', requireAuth, aiRateLimit, aiController.invokeLLM);
 
 router.use('/profile', userProfileRoutes);
 router.use('/profiles', userProfileRoutes);

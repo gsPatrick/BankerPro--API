@@ -1,4 +1,5 @@
 import * as audioAnalysisService from './audio-analysis.service.js';
+import { enqueuePainelAnalysis } from '../../queues/audio.queue.js';
 import catchAsync from '../../utils/catch-async.js';
 import { sendSuccess, sendCreated } from '../../utils/api-response.js';
 import AppError from '../../utils/app-error.js';
@@ -9,15 +10,31 @@ export const createAnalysis = catchAsync(async (req, res, next) => {
   }
 
   const duration = Number(req.body?.durationSeconds);
+  const durationSeconds = Number.isFinite(duration) && duration > 0 ? Math.round(duration) : null;
+  const contexto = req.body?.contexto || null;
 
-  const analise = await audioAnalysisService.analyzeAudio(req.user.id, {
-    filePath: req.file.path,
-    durationSeconds: Number.isFinite(duration) && duration > 0 ? Math.round(duration) : null,
-    contexto: req.body?.contexto || null,
+  // Com a fila: cria a linha 'processing', enfileira e responde na hora — o
+  // usuário não fica 30-90s esperando, e uma rajada de áudios não trava a API.
+  const pendente = await audioAnalysisService.createPendingAnalysis(req.user.id, {
+    durationSeconds,
     source: 'painel'
   });
 
-  return sendCreated(res, analise, 'Análise da negociação concluída.');
+  const job = await enqueuePainelAnalysis({
+    analysisId: pendente.id,
+    filePath: req.file.path,
+    contexto
+  });
+
+  if (job) {
+    return sendCreated(res, pendente, 'Áudio recebido. A análise está sendo gerada.');
+  }
+
+  // Sem fila (Redis indisponível): completa de forma síncrona, como antes, para
+  // nada deixar de funcionar. A mesma linha pendente é preenchida.
+  await audioAnalysisService.completePendingAnalysis(pendente.id, req.file.path, { contexto });
+  const concluida = await audioAnalysisService.getAnalysis(req.user.id, pendente.id);
+  return sendCreated(res, concluida, 'Análise da negociação concluída.');
 });
 
 export const getAnalyses = catchAsync(async (req, res) => {

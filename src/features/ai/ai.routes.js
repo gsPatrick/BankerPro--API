@@ -2,10 +2,13 @@ import { Router } from 'express';
 import * as aiController from './ai.controller.js';
 import { requireAuth, requireRole } from '../../middlewares/auth.middleware.js';
 import { requirePermission } from '../../middlewares/permission.middleware.js';
+import { aiRateLimit } from '../../middlewares/rate-limit.middleware.js';
 
 const router = Router();
 
 router.use(requireAuth);
+// Teto por usuário nas chamadas de IA — protege a fatura e a máquina de loops.
+router.use(aiRateLimit);
 
 router.post('/simulation/chat', requirePermission('cenarios'), aiController.simulationChat);
 router.post('/simulation/evaluate', requirePermission('cenarios'), aiController.simulationEvaluate);

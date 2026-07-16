@@ -17,16 +17,33 @@ export default class AudioAnalysis extends Model {
         },
         onDelete: 'CASCADE'
       },
+      // Etapa da análise. Quando o áudio vai para a fila, a linha nasce como
+      // 'processing' (transcrição/análise ainda vazias) e o worker a completa.
+      // No modo síncrono, já nasce 'completed'.
+      status: {
+        type: DataTypes.STRING(20),
+        allowNull: false,
+        defaultValue: 'completed',
+        validate: {
+          isIn: [['processing', 'completed', 'failed']]
+        }
+      },
+      // Mensagem amigável quando a análise falha, para mostrar no histórico.
+      errorMessage: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
       // O áudio em si não é guardado: é apagado assim que a transcrição sai.
       // O que fica é o texto, que é o insumo da análise e o que o usuário relê.
+      // Nulo enquanto o processamento não terminou.
       transcription: {
         type: DataTypes.TEXT,
-        allowNull: false
+        allowNull: true
       },
-      // Feedback do treinador comercial, em texto corrido.
+      // Feedback do treinador comercial, em texto corrido. Nulo até completar.
       analysis: {
         type: DataTypes.TEXT,
-        allowNull: false
+        allowNull: true
       },
       // Nota de 0 a 10 que a IA atribuiu, extraída para listar e ordenar o
       // histórico sem precisar reprocessar o texto. Nula se não vier no feedback.

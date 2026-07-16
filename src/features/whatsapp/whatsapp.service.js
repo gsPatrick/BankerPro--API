@@ -1,9 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import * as wpProvider from '../../providers/whatsapp/whatsapp.provider.js';
-import { User, Subscription, SystemPrompt, ProductKnowledge, Plan } from '../../models/index.js';
+import { User, Subscription, SystemPrompt, ProductKnowledge, Plan, AudioAnalysis } from '../../models/index.js';
 import { invokeLLM } from '../../providers/anthropic/anthropic.provider.js';
 import * as audioAnalysisService from '../audio-analysis/audio-analysis.service.js';
+import { enqueueWhatsappAnalysis } from '../../queues/audio.queue.js';
 
 export const getStatus = async (appUrl) => {
   let statusInfo = await wpProvider.getInstanceStatus();
@@ -50,8 +51,11 @@ const planoLibera = (plan, featureKey) =>
   Boolean(plan?.permissions && plan.permissions.includes(featureKey));
 
 /**
- * Áudio recebido no WhatsApp vira Análise de Negociação: baixa a mídia, roda o
- * mesmo serviço do painel e responde o feedback no chat.
+ * Áudio recebido no WhatsApp vira Análise de Negociação. Aqui só validamos e
+ * confirmamos o recebimento na hora; o trabalho pesado (baixar a mídia,
+ * transcrever, analisar) vai para a fila e responde o feedback quando terminar.
+ * Assim o webhook fecha rápido — a Evolution não dá timeout nem reenvia a
+ * mensagem (o que causava análise e cobrança duplicadas).
  */
 const handleIncomingAudio = async ({ cleanSender, messageKey, durationSeconds }) => {
   const { user, plan } = await resolverUsuarioPorNumero(cleanSender);
@@ -66,10 +70,31 @@ const handleIncomingAudio = async ({ cleanSender, messageKey, durationSeconds })
     return { success: false, reason: 'Plan not authorized' };
   }
 
-  // A transcrição e a análise levam algum tempo: sem este aviso o usuário fica
-  // sem resposta achando que o áudio se perdeu.
   await wpProvider.sendMessage(cleanSender, '🎧 Recebi o seu áudio! Estou ouvindo a negociação e já te mando a análise. Leva alguns instantes.');
 
+  const jobData = { userId: user.id, sender: cleanSender, messageKey, durationSeconds };
+
+  const job = await enqueueWhatsappAnalysis(jobData);
+  if (job) {
+    return { success: true, queued: true };
+  }
+
+  // Sem fila (Redis indisponível): processa na hora, como antes. O erro já é
+  // respondido ao usuário dentro do job; aqui só evitamos que ele suba.
+  try {
+    await processWhatsappAudioJob(jobData);
+  } catch {
+    // já tratado (mensagem enviada ao usuário)
+  }
+  return { success: true };
+};
+
+/**
+ * O trabalho pesado do áudio do WhatsApp, chamado pelo worker da fila (ou inline
+ * no fallback síncrono): baixa a mídia, transcreve, analisa, salva no histórico e
+ * responde o feedback no chat.
+ */
+export const processWhatsappAudioJob = async ({ userId, sender, messageKey, durationSeconds }) => {
   const tmpDir = './uploads/audio-tmp';
   let filePath = null;
 
@@ -86,21 +111,25 @@ const handleIncomingAudio = async ({ cleanSender, messageKey, durationSeconds })
     filePath = path.join(tmpDir, `whatsapp-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
     await fs.promises.writeFile(filePath, buffer);
 
-    // O service apaga o arquivo por conta própria, no sucesso e no erro.
-    const analise = await audioAnalysisService.analyzeAudio(user.id, {
-      filePath,
-      durationSeconds,
+    // runTranscriptionAndAnalysis apaga o arquivo por conta própria, no sucesso e no erro.
+    const resultado = await audioAnalysisService.runTranscriptionAndAnalysis(filePath, {});
+
+    await AudioAnalysis.create({
+      createdByUserId: userId,
+      status: 'completed',
+      ...resultado,
+      durationSeconds: durationSeconds ?? null,
       source: 'whatsapp'
     });
 
-    await wpProvider.sendMessage(cleanSender, `${analise.analysis}\n\n———\n📊 A análise completa também ficou salva no seu histórico da plataforma.`);
-    return { success: true };
+    await wpProvider.sendMessage(sender, `${resultado.analysis}\n\n———\n📊 A análise completa também ficou salva no seu histórico da plataforma.`);
   } catch (error) {
     console.error('Erro ao analisar áudio recebido no WhatsApp:', error);
-    // Mensagem de AppError é escrita para o usuário; o resto é detalhe interno.
+    // Garante que o arquivo não fique órfão se falhou antes da transcrição.
+    if (filePath) await fs.promises.unlink(filePath).catch(() => {});
     const motivo = error.isOperational ? error.message : 'Não consegui analisar este áudio. Tente enviar novamente em instantes.';
-    await wpProvider.sendMessage(cleanSender, `⚠️ ${motivo}`);
-    return { success: false, error: error.message };
+    await wpProvider.sendMessage(sender, `⚠️ ${motivo}`);
+    throw error;
   }
 };
 
