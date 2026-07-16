@@ -5,32 +5,56 @@
  * Roda contra a API JÁ NO AR (não sobe nada aqui). Só faz leituras (GET), então é
  * seguro rodar contra produção — não cria nem apaga dado nenhum.
  *
- * Uso:
- *   API_URL=https://sua-api/api/v1 TOKEN=seu_jwt CONCURRENCY=100 DURATION=30 \
- *     node scripts/load-test.mjs
+ * Uso (mais fácil — o script loga sozinho, de preferência com uma conta ADMIN,
+ * que passa por todas as telas sem barreira de plano):
+ *   API_URL=https://sua-api/api/v1 EMAIL=admin@admin.com PASSWORD=suasenha \
+ *     CONCURRENCY=100 DURATION=30 node scripts/load-test.mjs
  *
- * Como pegar o TOKEN: faça login na plataforma, abra o DevTools do navegador
- * (F12) → aba Application/Aplicativo → Local Storage → copie o valor de
- * "bankerpro_token".
+ * Ou, se preferir passar o token direto (pegue no navegador: F12 → Application →
+ * Local Storage → "bankerpro_token"):
+ *   API_URL=https://sua-api/api/v1 TOKEN=seu_jwt CONCURRENCY=100 node scripts/load-test.mjs
  *
  * Variáveis:
- *   API_URL      base da API, com o /api/v1 (obrigatório)
- *   TOKEN        um JWT de um usuário logado (obrigatório)
- *   CONCURRENCY  quantos usuários simultâneos (padrão 100)
- *   DURATION     por quantos segundos rodar (padrão 30)
- *   THINK_MS     pausa entre requests de cada usuário, simulando gente real (padrão 800ms)
+ *   API_URL          base da API, com o /api/v1 (obrigatório)
+ *   EMAIL + PASSWORD credenciais para o script logar sozinho (use um ADMIN)
+ *   TOKEN            alternativa: um JWT já pronto
+ *   CONCURRENCY      quantos usuários simultâneos (padrão 100)
+ *   DURATION         por quantos segundos rodar (padrão 30)
+ *   THINK_MS         pausa entre requests de cada usuário (padrão 800ms)
  */
 
 const API_URL = (process.env.API_URL || '').replace(/\/$/, '');
-const TOKEN = process.env.TOKEN || '';
+let TOKEN = process.env.TOKEN || '';
+const EMAIL = process.env.EMAIL || '';
+const PASSWORD = process.env.PASSWORD || '';
 const CONCURRENCY = Math.max(1, parseInt(process.env.CONCURRENCY || '100', 10));
 const DURATION = Math.max(1, parseInt(process.env.DURATION || '30', 10));
 const THINK_MS = Math.max(0, parseInt(process.env.THINK_MS || '800', 10));
 
-if (!API_URL || !TOKEN) {
-  console.error('❌ Defina API_URL e TOKEN. Ex.:');
-  console.error('   API_URL=https://sua-api/api/v1 TOKEN=seu_jwt node scripts/load-test.mjs');
+if (!API_URL || (!TOKEN && !(EMAIL && PASSWORD))) {
+  console.error('❌ Defina API_URL e (EMAIL + PASSWORD) OU TOKEN. Ex.:');
+  console.error('   API_URL=https://sua-api/api/v1 EMAIL=admin@admin.com PASSWORD=senha node scripts/load-test.mjs');
   process.exit(1);
+}
+
+// Loga na API para obter um token real, se não veio um pronto.
+async function autenticar() {
+  if (TOKEN) return;
+  console.log(`🔑 Logando como ${EMAIL}...`);
+  const res = await fetch(`${API_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: EMAIL, password: PASSWORD })
+  });
+  const body = await res.json().catch(() => ({}));
+  const token = body?.data?.access_token || body?.access_token;
+  if (!res.ok || !token) {
+    console.error(`❌ Login falhou (${res.status}): ${body?.error?.message || body?.message || 'sem token na resposta'}`);
+    console.error('   Confira o EMAIL/PASSWORD. Um erro 401 aqui significa credenciais erradas.');
+    process.exit(1);
+  }
+  TOKEN = token;
+  console.log('🔑 Autenticado. Token obtido.\n');
 }
 
 // Só leituras — cada "usuário" sorteia um destes a cada volta. O peso simula o
@@ -86,6 +110,8 @@ const percentil = (arr, p) => {
 };
 
 async function main() {
+  await autenticar();
+
   console.log(`\n🔫 Teste de carga: ${CONCURRENCY} usuários simultâneos por ${DURATION}s`);
   console.log(`   Alvo: ${API_URL}\n`);
 
