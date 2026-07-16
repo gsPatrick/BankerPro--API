@@ -24,6 +24,7 @@ import { knowledgeData } from './src/seeds/knowledgeData.js';
 import { plansData } from './src/seeds/plansData.js';
 import { promptsData } from './src/seeds/promptsData.js';
 import { opportunitiesData } from './src/seeds/opportunitiesData.js';
+import { ADMIN_PLAN_KEY } from './src/config/constants.js';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -171,6 +172,25 @@ async function bootDatabase() {
       console.log('🎉 Seed inicial concluído com sucesso!');
     } else {
       console.log(`✅ Banco de dados já contém ${userCount} usuário(s). Seed ignorado.`);
+    }
+
+    // Garantir que todo admin tenha o plano interno ilimitado. Sem assinatura ativa
+    // o middleware de limite trata o admin como plano gratuito e o corta em 10 simulações.
+    const admins = await User.findAll({ where: { role: 'admin' } });
+    for (const admin of admins) {
+      const activeSub = await Subscription.findOne({
+        where: { userId: admin.id, status: 'active' }
+      });
+      if (activeSub) continue;
+      await Subscription.create({
+        userId: admin.id,
+        plan: ADMIN_PLAN_KEY,
+        status: 'active',
+        paymentMethod: 'internal',
+        startsAt: new Date(),
+        endsAt: null
+      });
+      console.log(`🌱 Plano interno vinculado ao admin ${admin.email}.`);
     }
 
     // Garantir seed de oportunidades em bases já existentes

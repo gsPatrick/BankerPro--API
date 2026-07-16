@@ -1,5 +1,14 @@
 export const plansData = [
   {
+    // Plano interno da equipe: o prefixo admin_ o mantém fora da vitrine pública.
+    key: 'admin_unlimited',
+    name: 'Administrador - Interno',
+    price: 0.00,
+    limitSimulations: -1, // Ilimitado
+    features: ['Acesso interno ilimitado'],
+    permissions: ['simulations', 'biblioteca', 'copiloto', 'gerador', 'anotacoes', 'metas', 'agenda', 'whatsapp_copilot']
+  },
+  {
     key: 'standard_monthly',
     name: 'Standard - Mensal',
     price: 29.00,

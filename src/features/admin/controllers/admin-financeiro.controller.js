@@ -2,11 +2,17 @@ import User from '../../../models/User.js';
 import Subscription from '../../../models/Subscription.js';
 import Plan from '../../../models/Plan.js';
 import { sendSuccess } from '../../../utils/api-response.js';
+import { INTERNAL_PLAN_PREFIX } from '../../../config/constants.js';
+import { Op } from 'sequelize';
 
 export const getFinancialSummary = async (req, res, next) => {
   try {
     // 1. Fetch all subscriptions including User and Plan Details
     const subscriptions = await Subscription.findAll({
+      // Planos internos liberam a equipe e não são venda: fora do resumo financeiro.
+      where: {
+        plan: { [Op.notLike]: `${INTERNAL_PLAN_PREFIX}%` }
+      },
       include: [
         {
           model: User,

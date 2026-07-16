@@ -1,10 +1,15 @@
+import { Op } from 'sequelize';
 import { Subscription, User, Plan } from '../../models/index.js';
 import * as mpProvider from '../../providers/mercadopago/mercadopago.provider.js';
 import AppError from '../../utils/app-error.js';
 import { getSettingValue } from '../../utils/settings-resolver.js';
+import { INTERNAL_PLAN_PREFIX, isInternalPlanKey } from '../../config/constants.js';
 
 export const listPlans = async () => {
   const plans = await Plan.findAll({
+    where: {
+      key: { [Op.notLike]: `${INTERNAL_PLAN_PREFIX}%` }
+    },
     order: [['price', 'ASC']]
   });
   return plans;
@@ -44,6 +49,12 @@ export const listSubscriptionHistory = async (userId) => {
 };
 
 export const activateFreePlan = async (userId, planType = 'free') => {
+  // Planos internos têm preço zero: sem esta trava, qualquer usuário poderia
+  // contratá-los pelo caminho de plano gratuito e ganhar acesso ilimitado.
+  if (isInternalPlanKey(planType)) {
+    throw new AppError('Plano indisponível para contratação.', 403, 'PLAN_NOT_AVAILABLE');
+  }
+
   const plan = await Plan.findOne({ where: { key: planType } });
   if (!plan) {
     throw new AppError('Plano inválido.', 404, 'PLAN_NOT_FOUND');
@@ -71,6 +82,10 @@ export const activateFreePlan = async (userId, planType = 'free') => {
 };
 
 export const checkoutSubscription = async (userId, planType, paymentMethod = null, cardToken = null, docNumber = null, docType = 'CPF') => {
+  if (isInternalPlanKey(planType)) {
+    throw new AppError('Plano indisponível para contratação.', 403, 'PLAN_NOT_AVAILABLE');
+  }
+
   const plan = await Plan.findOne({ where: { key: planType } });
   if (!plan) {
     throw new AppError('Plano inválido para checkout.', 404, 'PLAN_NOT_FOUND');

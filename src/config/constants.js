@@ -50,6 +50,14 @@ export const ClientStatus = [
   'Perdido'
 ];
 
+// Planos internos existem só para liberar a equipe: ficam fora da vitrine pública
+// e não contam como receita.
+export const INTERNAL_PLAN_PREFIX = 'admin_';
+export const ADMIN_PLAN_KEY = 'admin_unlimited';
+
+export const isInternalPlanKey = (key) =>
+  String(key || '').startsWith(INTERNAL_PLAN_PREFIX);
+
 export const SubscriptionStatus = {
   ACTIVE: 'active',
   CANCELLED: 'cancelled',
