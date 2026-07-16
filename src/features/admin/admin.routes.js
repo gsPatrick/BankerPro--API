@@ -57,6 +57,9 @@ router.route('/prompts/:key')
 router.post('/prompts/test', adminPromptsController.testPrompt);
 
 // --- PLANS MANAGEMENT ---
+// Precisa vir antes de /plans/:id para "features" não cair no parâmetro de id.
+router.get('/plans/features', adminPlansController.getPlanFeatures);
+
 router.route('/plans')
   .get(adminPlansController.getPlans)
   .post(adminPlansController.createPlan);

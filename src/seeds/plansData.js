@@ -6,7 +6,7 @@ export const plansData = [
     price: 0.00,
     limitSimulations: -1, // Ilimitado
     features: ['Acesso interno ilimitado'],
-    permissions: ['cenarios', 'historico', 'ranking', 'carteira', 'agenda', 'metas', 'anotacoes', 'copiloto', 'oportunidades', 'gerador', 'whatsapp_copilot']
+    permissions: ['cenarios', 'historico', 'ranking', 'carteira', 'agenda', 'metas', 'anotacoes', 'copiloto', 'oportunidades', 'gerador', 'analise_audio', 'whatsapp_copilot']
   },
   {
     key: 'standard_monthly',
@@ -22,7 +22,7 @@ export const plansData = [
     price: 49.00,
     limitSimulations: 100,
     features: ['100 Simulações / mês', 'Todos os cenários liberados', 'Gerador de abordagens', 'Copiloto no WhatsApp', 'Metas e progresso individual'],
-    permissions: ['cenarios', 'historico', 'ranking', 'carteira', 'agenda', 'metas', 'anotacoes', 'copiloto', 'oportunidades', 'gerador']
+    permissions: ['cenarios', 'historico', 'ranking', 'carteira', 'agenda', 'metas', 'anotacoes', 'copiloto', 'oportunidades', 'gerador', 'analise_audio']
   },
   {
     key: 'standard_yearly',
@@ -38,7 +38,7 @@ export const plansData = [
     price: 447.00,
     limitSimulations: 100,
     features: ['100 Simulações / mês', 'Todos os cenários liberados', 'Gerador de abordagens', 'Copiloto no WhatsApp', 'Metas e progresso individual', 'Economia de 25% no ano'],
-    permissions: ['cenarios', 'historico', 'ranking', 'carteira', 'agenda', 'metas', 'anotacoes', 'copiloto', 'oportunidades', 'gerador']
+    permissions: ['cenarios', 'historico', 'ranking', 'carteira', 'agenda', 'metas', 'anotacoes', 'copiloto', 'oportunidades', 'gerador', 'analise_audio']
   },
   {
     key: 'black_monthly',
@@ -46,7 +46,7 @@ export const plansData = [
     price: 69.00,
     limitSimulations: -1, // Ilimitado
     features: ['Simulações ilimitadas', 'Acesso antecipado a novos recursos', 'Copiloto no WhatsApp VIP', 'Gerador de abordagens avançado', 'Suporte prioritário individual'],
-    permissions: ['cenarios', 'historico', 'ranking', 'carteira', 'agenda', 'metas', 'anotacoes', 'copiloto', 'oportunidades', 'gerador', 'whatsapp_copilot']
+    permissions: ['cenarios', 'historico', 'ranking', 'carteira', 'agenda', 'metas', 'anotacoes', 'copiloto', 'oportunidades', 'gerador', 'analise_audio', 'whatsapp_copilot']
   },
   {
     key: 'black_yearly',
@@ -54,6 +54,6 @@ export const plansData = [
     price: 647.00,
     limitSimulations: -1, // Ilimitado
     features: ['Simulações ilimitadas', 'Acesso antecipado a novos recursos', 'Copiloto no WhatsApp VIP', 'Gerador de abordagens avançado', 'Suporte prioritário individual', 'Economia de 22% no ano'],
-    permissions: ['cenarios', 'historico', 'ranking', 'carteira', 'agenda', 'metas', 'anotacoes', 'copiloto', 'oportunidades', 'gerador', 'whatsapp_copilot']
+    permissions: ['cenarios', 'historico', 'ranking', 'carteira', 'agenda', 'metas', 'anotacoes', 'copiloto', 'oportunidades', 'gerador', 'analise_audio', 'whatsapp_copilot']
   }
 ];

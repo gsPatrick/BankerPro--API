@@ -1,7 +1,15 @@
 import * as adminPlansService from '../services/admin-plans.service.js';
+import { PlanFeatures } from '../../../config/constants.js';
 import catchAsync from '../../../utils/catch-async.js';
 import { sendSuccess } from '../../../utils/api-response.js';
 import AppError from '../../../utils/app-error.js';
+
+// O catálogo vem da API para o painel não manter uma cópia manual das keys: uma
+// lista espelhada esquece de crescer quando uma funcionalidade nova entra, e o
+// admin fica sem conseguir liberá-la.
+export const getPlanFeatures = catchAsync(async (req, res) => {
+  return sendSuccess(res, PlanFeatures, 'Funcionalidades que um plano pode liberar.');
+});
 
 export const getPlans = catchAsync(async (req, res, next) => {
   const plans = await adminPlansService.listPlans();
