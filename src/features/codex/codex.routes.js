@@ -19,6 +19,18 @@ router.route('/scenarios/:id')
   .put(codexController.updateScenario)
   .delete(codexController.deleteScenario);
 
+// --- PLANOS ---
+// Precisa vir antes de /plans/:id, senão "features" cairia no parâmetro de id.
+router.get('/plans/features', codexController.listPlanFeatures);
+
+router.route('/plans')
+  .get(codexController.listPlans)
+  .post(codexController.createPlan);
+
+router.route('/plans/:id')
+  .put(codexController.updatePlan)
+  .delete(codexController.deletePlan);
+
 // --- PROMPTS ---
 router.route('/prompts')
   .get(codexController.listPrompts);

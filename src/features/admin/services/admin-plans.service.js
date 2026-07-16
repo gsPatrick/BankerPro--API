@@ -1,4 +1,4 @@
-import { Plan } from '../../../models/index.js';
+import { Plan, Subscription } from '../../../models/index.js';
 import { PlanFeatureKeys } from '../../../config/constants.js';
 import AppError from '../../../utils/app-error.js';
 
@@ -62,8 +62,16 @@ export const deletePlan = async (id) => {
     throw new AppError('Plano não encontrado.', 404, 'PLAN_NOT_FOUND');
   }
 
-  if (plan.key === 'free') {
-    throw new AppError('O plano padrão gratuito (free) não pode ser excluído.', 400, 'BAD_REQUEST');
+  // subscriptions.plan é chave estrangeira para plans.key: sem esta checagem o
+  // banco derruba a exclusão com uma violação de FK crua, em vez de um erro que
+  // explica o que fazer.
+  const inUse = await Subscription.count({ where: { plan: plan.key } });
+  if (inUse > 0) {
+    throw new AppError(
+      `O plano "${plan.name}" não pode ser excluído: ${inUse} assinatura(s) apontam para ele. Migre essas assinaturas para outro plano antes.`,
+      400,
+      'PLAN_IN_USE'
+    );
   }
 
   await plan.destroy();

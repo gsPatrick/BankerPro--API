@@ -1,7 +1,9 @@
 import { sequelize, Scenario, SystemPrompt, SystemSetting, ProductKnowledge } from '../../models/index.js';
 import * as whatsappService from '../whatsapp/whatsapp.service.js';
 import * as adminSettingsService from '../admin/services/admin-settings.service.js';
+import * as adminPlansService from '../admin/services/admin-plans.service.js';
 import * as opportunityService from '../commercial-opportunity/commercial-opportunity.service.js';
+import { PlanFeatures } from '../../config/constants.js';
 
 export const ping = (req, res) => {
   res.json({
@@ -48,6 +50,55 @@ export const deleteScenario = async (req, res, next) => {
     if (!target) return res.status(404).json({ error: 'Cenário não encontrado.' });
     await target.destroy();
     res.json({ success: true, message: 'Cenário excluído com sucesso.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// --- PLANOS ---
+// Tudo passa pelo service do painel: é ele que valida as keys de permissão e
+// impede excluir um plano que ainda tem assinatura apontando para ele.
+export const listPlans = async (req, res, next) => {
+  try {
+    const list = await adminPlansService.listPlans();
+    res.json({ success: true, data: list });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Sem isto o Codex precisaria adivinhar as keys válidas de permissions — e uma
+// key errada não dá erro, só deixa a funcionalidade fechada para sempre.
+export const listPlanFeatures = async (req, res, next) => {
+  try {
+    res.json({ success: true, data: PlanFeatures });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createPlan = async (req, res, next) => {
+  try {
+    const plan = await adminPlansService.createPlan(req.body);
+    res.json({ success: true, data: plan });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updatePlan = async (req, res, next) => {
+  try {
+    const plan = await adminPlansService.updatePlan(req.params.id, req.body);
+    res.json({ success: true, data: plan });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deletePlan = async (req, res, next) => {
+  try {
+    await adminPlansService.deletePlan(req.params.id);
+    res.json({ success: true, message: 'Plano excluído com sucesso.' });
   } catch (err) {
     next(err);
   }
