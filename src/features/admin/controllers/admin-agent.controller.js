@@ -1,5 +1,7 @@
 import { sequelize, User, UserProfile, Plan, Scenario, ProductKnowledge, SystemPrompt, SystemSetting, Subscription } from '../../../models/index.js';
 import { getSettingValue } from '../../../utils/settings-resolver.js';
+import * as adminPlansService from '../services/admin-plans.service.js';
+import { PlanFeatureKeys } from '../../../config/constants.js';
 import Anthropic from '@anthropic-ai/sdk';
 import bcrypt from 'bcryptjs';
 
@@ -71,11 +73,15 @@ export const runAgentCommand = async (req, res, next) => {
             fields: {
               type: 'object',
               properties: {
-                key: { type: 'string', description: 'Key do plano, com o sufixo de cobrança (ex: standard_monthly, standard_yearly).' },
-                name: { type: 'string', description: 'Nome visível do plano.' },
-                price: { type: 'number', description: 'Preço em centavos ou valor real.' },
-                monthlySimulationsLimit: { type: 'number', description: 'Limite de simulações (-1 para ilimitado).' },
-                hasFreePeriod: { type: 'boolean' }
+                key: { type: 'string', description: 'Key do plano, com o sufixo de cobrança (ex: standard_monthly, standard_yearly). Não pode ser alterada depois de criada.' },
+                name: { type: 'string', description: 'Nome visível do plano (ex: "Standard - Mensal").' },
+                price: { type: 'number', description: 'Preço em reais (ex: 29.00).' },
+                limitSimulations: { type: 'number', description: 'Limite de simulações por mês (-1 para ilimitado).' },
+                permissions: {
+                  type: 'array',
+                  items: { type: 'string', enum: PlanFeatureKeys },
+                  description: `Funcionalidades que o plano libera. É esta lista que bloqueia ou não as telas para o assinante, e é dela que sai o card do plano. Valores válidos: ${PlanFeatureKeys.join(', ')}. Uma key fora dessa lista é rejeitada.`
+                }
               }
             }
           },
@@ -217,16 +223,17 @@ Seja prestativo, eficiente e aja exatamente como um agente de execução (action
           } else if (name === 'manage_plan') {
             const { action, id: planId, fields } = input;
 
+            // Passa pelo mesmo service do painel: é ele que rejeita uma key de
+            // permissão inexistente. Escrevendo no model direto, uma key errada
+            // salvaria sem erro e a funcionalidade nunca abriria.
             if (action === 'list') {
-              const list = await Plan.findAll();
+              const list = await adminPlansService.listPlans();
               resultData = JSON.stringify(list);
             } else if (action === 'create') {
-              const newPlan = await Plan.create(fields);
+              const newPlan = await adminPlansService.createPlan(fields);
               resultData = JSON.stringify({ success: true, plan: newPlan });
             } else if (action === 'update') {
-              const target = await Plan.findByPk(planId);
-              if (!target) throw new Error('Plano não encontrado.');
-              await target.update(fields);
+              const target = await adminPlansService.updatePlan(planId, fields);
               resultData = JSON.stringify({ success: true, plan: target });
             }
             executionLogs.push({ tool: name, input, success: true });

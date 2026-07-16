@@ -399,6 +399,69 @@ Uma ferramenta de alto poder que permite à IA executar qualquer instrução SQL
 
 ---
 
+### 9. Planos e Permissões (tabela `plans`)
+
+Não há endpoint dedicado a planos no Codex — para lê-los ou alterá-los, use o `/sql`. Esta seção existe porque a coluna `permissions` é o que **bloqueia ou libera as telas** para o assinante, e escrever nela errado quebra o acesso em silêncio.
+
+#### 📋 Colunas que importam
+
+| Coluna | Tipo | Observação |
+|---|---|---|
+| `key` | texto | Identificador único, com sufixo de cobrança (`standard_monthly`, `standard_yearly`). É a FK usada por `subscriptions.plan` — **não altere de um plano existente** |
+| `name` | texto | Nome visível (ex: `Standard - Mensal`) |
+| `price` | decimal | Preço em reais |
+| `limit_simulations` | inteiro | Simulações por mês. `-1` = ilimitado |
+| `permissions` | array de texto | **Libera as telas.** Só aceita as keys da tabela abaixo |
+| `features` | array de texto | **Legado — não use.** O card do plano é montado a partir de `permissions` + `limit_simulations`; o que estiver aqui é ignorado na vitrine |
+
+#### 🔑 Keys válidas em `permissions`
+
+Qualquer valor fora desta lista é aceito pelo banco mas **nunca libera nada** — a funcionalidade fica invisível e não há erro. Confira a grafia.
+
+| Key | Tela que libera |
+|---|---|
+| `cenarios` | Cenários (e iniciar simulações) |
+| `historico` | Histórico |
+| `ranking` | Ranking |
+| `carteira` | Carteira |
+| `agenda` | Agenda |
+| `metas` | Metas |
+| `anotacoes` | Anotações |
+| `copiloto` | Copiloto IA |
+| `oportunidades` | Lista de Oportunidades |
+| `gerador` | Gerador de abordagens |
+| `whatsapp_copilot` | Copiloto no WhatsApp |
+
+Painel, Perfil, Configurações e Planos são sempre liberados e não têm key — bloquear a tela de Planos impediria o próprio upgrade.
+
+#### 🔹 Consultar os planos e o que cada um libera
+```json
+{
+  "sql": "SELECT key, name, price, limit_simulations, permissions FROM plans ORDER BY price;"
+}
+```
+
+#### 🔹 Liberar uma funcionalidade em um plano
+```json
+{
+  "sql": "UPDATE plans SET permissions = permissions || '{anotacoes}' WHERE key = 'standard_monthly' AND NOT permissions @> '{anotacoes}';"
+}
+```
+
+#### 🔹 Remover uma funcionalidade de um plano
+```json
+{
+  "sql": "UPDATE plans SET permissions = array_remove(permissions, 'anotacoes') WHERE key = 'standard_monthly';"
+}
+```
+
+> [!IMPORTANT]
+> **O card do plano é derivado.** Alterar `permissions` muda automaticamente o que aparece na landing e no checkout — não existe texto de marketing separado para manter em sincronia. Um plano sem nenhuma permissão mostra apenas a linha do limite de simulações e o assinante não acessa nada.
+
+> **Planos internos:** keys com o prefixo `admin_` (ex: `admin_unlimited`) são internos da equipe. Ficam fora da vitrine pública, não entram no resumo financeiro e não podem ser contratados no checkout. Não os exponha nem os ofereça.
+
+---
+
 ---
 
 ## 🤖 Snippet de Instrução para colar na sua IA Externa (Claude / GPT)
@@ -423,6 +486,12 @@ Recursos principais:
 Produtos válidos em opportunities: Consórcio, Financiamento, Empréstimo, Consignado, Cartão de Crédito, Seguro de Vida, Capitalização.
 Canais: Ligação, WhatsApp, Presencial. Status: Ativo | Inativo.
 Não recomendar investimentos; saldo/aplicação só como contexto de perfil.
+
+Planos ficam na tabela plans e só são acessíveis via /sql (não há endpoint dedicado).
+A coluna permissions é o que libera as telas do assinante; a coluna features é legado e é ignorada — o card do plano é montado a partir de permissions + limit_simulations.
+Keys válidas em permissions: cenarios, historico, ranking, carteira, agenda, metas, anotacoes, copiloto, oportunidades, gerador, whatsapp_copilot.
+Qualquer outra key é salva mas nunca libera nada, sem erro nenhum. Nunca altere a key de um plano existente: subscriptions.plan aponta para ela.
+Planos com prefixo admin_ são internos da equipe — não exponha nem ofereça.
 
 Em scenarios, os nomes dos campos são exatos e não há conversão automática — campo com nome errado é ignorado em silêncio.
 Obrigatórios: title, category, difficulty, clientName, clientPersona, openingMessage.
