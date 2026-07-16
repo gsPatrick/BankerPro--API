@@ -11,7 +11,7 @@ const getAnthropicClient = (apiKey) => {
   return anthropicClient;
 };
 
-export const invokeLLM = async ({ system, messages, model, maxTokens = 4000 }) => {
+export const invokeLLM = async ({ system, messages, model, maxTokens = 4000, thinking, effort }) => {
   const apiKey = await getSettingValue('ANTHROPIC_API_KEY');
   if (!apiKey || apiKey === 'your_anthropic_api_key_here') {
     // Modo de Simulação / Mock se não houver chave configurada para testes locais
@@ -37,6 +37,12 @@ export const invokeLLM = async ({ system, messages, model, maxTokens = 4000 }) =
     const response = await client.messages.create({
       model: selectedModel,
       max_tokens: maxTokens,
+      // Omitir o campo thinking liga o raciocínio adaptativo por padrão, e o effort
+      // entra em 'high': as respostas daqui são JSON estruturado a partir de um
+      // roteiro pronto, então isso custava dezenas de segundos sem ganho. Quem
+      // precisar de raciocínio pede explicitamente pelos parâmetros.
+      thinking: thinking ?? { type: 'disabled' },
+      output_config: { effort: effort ?? 'low' },
       system,
       messages: formattedMessages
     });

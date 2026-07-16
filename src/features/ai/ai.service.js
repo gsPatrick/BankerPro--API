@@ -129,9 +129,14 @@ export const simulationEvaluate = async (userId, { simulationId, durationMinutes
     conversationText
   });
 
+  // Única chamada que mantém o raciocínio ligado: aqui a IA julga o desempenho e
+  // atribui a nota, roda uma vez ao fim da simulação e o usuário já espera pelo
+  // resultado. Nas demais o raciocínio só somava latência.
   const reply = await anthropicProvider.invokeLLM({
     system: systemPrompt,
-    messages: []
+    messages: [],
+    thinking: { type: 'adaptive' },
+    effort: 'medium'
   });
 
   const evaluationResult = anthropicProvider.parseJSONResponse(reply);
