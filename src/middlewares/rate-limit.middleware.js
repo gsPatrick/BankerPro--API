@@ -1,4 +1,4 @@
-import { rateLimit } from 'express-rate-limit';
+import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 
 /**
  * Limite de requisições nos endpoints que gastam dinheiro (IA e transcrição). O
@@ -9,7 +9,12 @@ import { rateLimit } from 'express-rate-limit';
  * O limite é generoso de propósito: um usuário real nunca chega perto; só um
  * comportamento anormal bate no teto. Ajuste por env se precisar.
  */
-const chavePorUsuario = (req) => req.user?.id || req.ip;
+// Chaveia por usuário (todos estes endpoints são autenticados, então o id sempre
+// existe). O IP é só um fallback de segurança, e usa o helper do próprio
+// express-rate-limit — ele normaliza IPv6 (mascara em subnet), o que evita a
+// validação que estourava no boot e impede um usuário IPv6 de furar o limite.
+const chavePorUsuario = (req) =>
+  req.user?.id ? `u:${req.user.id}` : ipKeyGenerator(req.ip);
 
 // IA interativa (copiloto, simulação, gerador): muitas chamadas legítimas em
 // sequência, mas ainda assim com um teto que só um loop ultrapassa.
