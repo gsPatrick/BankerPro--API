@@ -50,12 +50,6 @@ export const ClientStatus = [
   'Perdido'
 ];
 
-export const SubscriptionPlans = {
-  FREE: 'free',
-  PRO: 'pro',
-  TEAM: 'team'
-};
-
 export const SubscriptionStatus = {
   ACTIVE: 'active',
   CANCELLED: 'cancelled',

@@ -54,7 +54,7 @@ export const runAgentCommand = async (req, res, next) => {
             email: { type: 'string', description: 'Email do usuário alvo.' },
             role: { type: 'string', enum: ['user', 'admin'] },
             isActive: { type: 'boolean' },
-            planKey: { type: 'string', description: 'Slug do plano a associar (ex: pro, basic, vip).' },
+            planKey: { type: 'string', description: 'Key exata de um plano existente (ex: standard_monthly, premium_yearly, black_monthly). Use manage_plan com action "list" para descobrir as keys disponíveis.' },
             monthsCount: { type: 'number', description: 'Número de meses grátis.' }
           },
           required: ['action']
@@ -71,7 +71,7 @@ export const runAgentCommand = async (req, res, next) => {
             fields: {
               type: 'object',
               properties: {
-                key: { type: 'string', description: 'Slug do plano (ex: pro, basic).' },
+                key: { type: 'string', description: 'Key do plano, com o sufixo de cobrança (ex: standard_monthly, standard_yearly).' },
                 name: { type: 'string', description: 'Nome visível do plano.' },
                 price: { type: 'number', description: 'Preço em centavos ou valor real.' },
                 monthlySimulationsLimit: { type: 'number', description: 'Limite de simulações (-1 para ilimitado).' },
@@ -197,10 +197,14 @@ Seja prestativo, eficiente e aja exatamente como um agente de execução (action
                   { where: { userId: targetUser.id, status: 'active' } }
                 );
 
+                if (!planKey) throw new Error('Informe a key do plano a associar.');
+                const targetPlan = await Plan.findOne({ where: { key: planKey } });
+                if (!targetPlan) throw new Error(`Plano "${planKey}" não encontrado.`);
+
                 const count = monthsCount || 1;
                 const newSub = await Subscription.create({
                   userId: targetUser.id,
-                  plan: planKey || 'pro',
+                  plan: targetPlan.key,
                   status: 'active',
                   startsAt: new Date(),
                   endsAt: new Date(Date.now() + count * 30 * 24 * 60 * 60 * 1000)
