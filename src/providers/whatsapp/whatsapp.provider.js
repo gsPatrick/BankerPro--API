@@ -214,15 +214,16 @@ export const sendMessage = async (number, text) => {
   // Envia direto pelo número, como antes (sem consultar o JID na Evolution).
   const formattedNumber = number.replace(/\D/g, '');
 
-  // O corpo do sendText mudou entre versões da Evolution: a v2 espera { number,
-  // text } plano; a v1 espera o texto aninhado em textMessage. Tentamos a v2
-  // primeiro e, se recusada, caímos na v1 — assim funciona nas duas.
-  const corpoV2 = { number: formattedNumber, text };
+  // Formato v1 (com `presence: 'composing'` + `delay`) — é o que estava ENTREGANDO
+  // antes. O typing/delay deixa o envio mais humano; sem isso, o WhatsApp costuma
+  // aceitar (201) mas não entregar (fica PENDING). Por isso ele vem PRIMEIRO.
   const corpoV1 = {
     number: formattedNumber,
-    options: { delay: 1000, presence: 'composing' },
+    options: { delay: 1200, presence: 'composing' },
     textMessage: { text }
   };
+  // Formato v2 (plano) como reserva, também com delay para manter o comportamento humano.
+  const corpoV2 = { number: formattedNumber, text, delay: 1200 };
 
   const tentar = async (corpo) => {
     const response = await fetch(`${url}/message/sendText/copilot`, {
@@ -235,12 +236,12 @@ export const sendMessage = async (number, text) => {
   };
 
   try {
-    let formato = 'v2';
-    let r = await tentar(corpoV2);
+    let formato = 'v1';
+    let r = await tentar(corpoV1);
     if (!r.ok) {
-      console.warn(`⚠️ sendText (formato v2) recusado (${r.status}): ${r.texto}. Tentando formato v1...`);
-      formato = 'v1';
-      r = await tentar(corpoV1);
+      console.warn(`⚠️ sendText (formato v1) recusado (${r.status}): ${r.texto}. Tentando formato v2...`);
+      formato = 'v2';
+      r = await tentar(corpoV2);
     }
 
     if (!r.ok) {
