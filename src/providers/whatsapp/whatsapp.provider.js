@@ -234,15 +234,21 @@ export const sendMessage = async (number, text) => {
   };
 
   try {
+    let formato = 'v2';
     let r = await tentar(corpoV2);
     if (!r.ok) {
       console.warn(`⚠️ sendText (formato v2) recusado (${r.status}): ${r.texto}. Tentando formato v1...`);
+      formato = 'v1';
       r = await tentar(corpoV1);
     }
 
     if (!r.ok) {
       throw new Error(`${r.status} — ${r.texto}`);
     }
+    // Loga o corpo da resposta: um 2xx só confirma que a Evolution aceitou; o corpo
+    // mostra se a mensagem foi de fato enfileirada/enviada (key, status) ou se veio
+    // algo estranho apesar do 2xx.
+    console.log(`📤 sendText (${formato}) para ${formattedNumber} — status ${r.status} | resposta: ${r.texto?.slice(0, 400)}`);
     return { ok: true };
   } catch (error) {
     console.error(`❌ Erro ao enviar mensagem para ${formattedNumber} no Evolution:`, error.message);
