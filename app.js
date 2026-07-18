@@ -31,6 +31,7 @@ import { plansData } from './src/seeds/plansData.js';
 import { promptsData } from './src/seeds/promptsData.js';
 import { opportunitiesData } from './src/seeds/opportunitiesData.js';
 import { ADMIN_PLAN_KEY } from './src/config/constants.js';
+import * as whatsappService from './src/features/whatsapp/whatsapp.service.js';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -87,7 +88,7 @@ app.get('/', (req, res) => {
   res.json({
     name: 'bankerpro-api',
     version: '1.0.0',
-    description: 'BankerPro Backend API',
+    description: 'Closer.IA Backend API',
     status: 'online'
   });
 });
@@ -170,7 +171,7 @@ async function bootDatabase() {
         userId: adminUser.id,
         roleTitle: 'Administrador Principal',
         experienceLevel: 'Especialista',
-        bankName: 'BankerPro'
+        bankName: 'Closer.IA'
       });
       console.log('  ✅ Admin criado (admin@admin.com / admin123)');
 
@@ -267,7 +268,7 @@ Toda abordagem comercial deve considerar o perfil, renda, momento financeiro, ca
 O usuário é responsável por respeitar as normas da instituição onde atua, políticas internas, regras de compliance, LGPD, sigilo bancário, Código de Defesa do Consumidor e boas práticas do mercado financeiro, incluindo diretrizes aplicáveis de entidades como FEBRABAN, ANBIMA e órgãos reguladores quando cabível.
 
 8. Responsabilidade pelo uso
-O BankerPro é uma ferramenta de apoio. A responsabilidade pelo atendimento, oferta, comunicação, registro e fechamento comercial é do usuário e/ou da instituição responsável pela operação.`
+O Closer.IA é uma ferramenta de apoio. A responsabilidade pelo atendimento, oferta, comunicação, registro e fechamento comercial é do usuário e/ou da instituição responsável pela operação.`
       }
     });
 
@@ -275,6 +276,25 @@ O BankerPro é uma ferramenta de apoio. A responsabilidade pelo atendimento, ofe
   } catch (error) {
     console.error('❌ Falha ao inicializar o banco de dados:', error.message);
     process.exit(1);
+  }
+}
+
+// Prepara o WhatsApp automaticamente no boot: garante a instância criada, registra
+// o webhook apontando de volta para a API e captura o número conectado. Assim, depois
+// que o admin escaneia o QR, o sistema faz o resto sozinho — sem depender de alguém
+// abrir a tela de status. Precisa da URL pública da API em APP_PUBLIC_URL; sem ela,
+// o webhook ainda é configurado quando a tela de status é aberta.
+async function ensureWhatsappReady() {
+  const appUrl = (process.env.APP_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+  if (!appUrl) {
+    console.log('ℹ️ APP_PUBLIC_URL não definido — o webhook do WhatsApp será configurado quando o admin abrir a tela de status.');
+    return;
+  }
+  try {
+    await whatsappService.getStatus(appUrl);
+    console.log('✅ WhatsApp preparado no boot (instância, webhook e número verificados).');
+  } catch (err) {
+    console.error('⚠️ Não foi possível preparar o WhatsApp no boot (segue normalmente):', err.message);
   }
 }
 
@@ -333,6 +353,7 @@ if (WORKER_COUNT > 1 && cluster.isPrimary) {
   // Primary: prepara o banco uma vez, roda o worker de fila (não atende HTTP,
   // então o trabalho pesado não disputa com as requests) e sobe os web workers.
   bootDatabase().then(() => {
+    ensureWhatsappReady();
     startAudioWorker();
     console.log(`🧩 Subindo ${WORKER_COUNT} workers...`);
     for (let i = 0; i < WORKER_COUNT; i++) {
@@ -353,6 +374,7 @@ if (WORKER_COUNT > 1 && cluster.isPrimary) {
   // WEB_CONCURRENCY=1 (ex.: VPS de 1 core): um processo único prepara o banco,
   // roda o worker de fila e serve.
   bootDatabase().then(() => {
+    ensureWhatsappReady();
     startAudioWorker();
     startServer();
   });
