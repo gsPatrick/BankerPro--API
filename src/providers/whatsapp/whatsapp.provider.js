@@ -224,9 +224,12 @@ const resolverNumeroReal = async (url, apiKey, numeroDigitos) => {
       body: JSON.stringify({ numbers: [numeroDigitos] })
     });
     if (!response.ok) {
+      const detalhe = await response.text().catch(() => '');
+      console.warn(`⚠️ Checagem de número (whatsappNumbers) indisponível (${response.status}): ${detalhe.slice(0, 200)}`);
       return null;
     }
     const data = await response.json();
+    console.log(`🔎 whatsappNumbers p/ ${numeroDigitos} — resposta: ${JSON.stringify(data).slice(0, 300)}`);
     const lista = Array.isArray(data) ? data : (data?.numbers || data?.data || []);
     const item = (Array.isArray(lista) ? lista : [])[0];
     // Alguns retornos trazem exists:false para número sem WhatsApp — nesse caso não força.
