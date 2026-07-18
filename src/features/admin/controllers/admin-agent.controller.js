@@ -101,7 +101,7 @@ export const runAgentCommand = async (req, res, next) => {
       }
     ];
 
-    const systemPrompt = `Você é o Assistente Executivo IA (Auto-Gestor) do painel de controle do BankerPro.
+    const systemPrompt = `Você é o Assistente Executivo IA (Auto-Gestor) do painel de controle do Closer.IA.
 Você tem acesso de super-administrador do sistema e pode criar/atualizar cenários, gerenciar perfis de usuários, conceder planos/isenções e realizar consultas avançadas utilizando ferramentas específicas.
 
 Ao receber uma ordem do administrador:

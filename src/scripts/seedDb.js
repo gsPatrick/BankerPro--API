@@ -19,7 +19,7 @@ import { promptsData } from '../seeds/promptsData.js';
 import { opportunitiesData } from '../seeds/opportunitiesData.js';
 
 async function seedDatabase() {
-  console.log('🌱 Iniciando o semeio (seeding) do banco de dados BankerPro...');
+  console.log('🌱 Iniciando o semeio (seeding) do banco de dados Closer.IA...');
   console.log(`Conectando em: ${process.env.DB_HOST}:${process.env.DB_PORT} (Banco: ${process.env.DB_NAME})`);
 
   try {
@@ -52,7 +52,7 @@ async function seedDatabase() {
       userId: adminUser.id,
       roleTitle: 'Administrador Principal',
       experienceLevel: 'Especialista',
-      bankName: 'BankerPro'
+      bankName: 'Closer.IA'
     });
     console.log('✅ Usuário administrador criado (admin@admin.com / admin123).');
 

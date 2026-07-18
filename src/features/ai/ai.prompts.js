@@ -262,12 +262,12 @@ export const getCopilotoAnalyzePrompt = async ({ detectedMode, situationText, kn
   }
 
   // Fallback padrão se não encontrar no banco
-  return `Você é o Copiloto IA do BankerPro. Seu papel é analisar o relato de atendimento a seguir e gerar um guia estratégico detalhado e altamente prático para o bancário usar na negociação real com o cliente.
+  return `Você é o Copiloto IA do Closer.IA. Seu papel é analisar o relato de atendimento a seguir e gerar um guia estratégico detalhado e altamente prático para o bancário usar na negociação real com o cliente.
 
 MODO CLASSIFICADO DETERMINISTICAMENTE: ${detectedMode}
 ${kbText}
 
-⚠️ REGRAS IMPORTANTES DO BANKERPRO:
+⚠️ REGRAS IMPORTANTES DO CLOSER.IA:
 - NUNCA recomende CDB, renda fixa, fundos, poupança ou investimentos.
 - Use exclusivamente a matriz de 4 produtos: Crédito, Consórcio, Seguro de Vida, Capitalização.
 - LINGUAGEM DO BANCÁRIO: Não use termos como "investir", "investimento", "rentabilidade", "poupança", "CDB", "fundo". Substitua por parcela mensal, benefício, proteção, planejamento, guardar dinheiro.

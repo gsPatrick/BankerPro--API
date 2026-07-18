@@ -117,7 +117,7 @@ Toda abordagem comercial deve considerar o perfil, renda, momento financeiro, ca
 O usuário é responsável por respeitar as normas da instituição onde atua, políticas internas, regras de compliance, LGPD, sigilo bancário, Código de Defesa do Consumidor e boas práticas do mercado financeiro, incluindo diretrizes aplicáveis de entidades como FEBRABAN, ANBIMA e órgãos reguladores quando cabível.
 
 8. Responsabilidade pelo uso
-O BankerPro é uma ferramenta de apoio. A responsabilidade pelo atendimento, oferta, comunicação, registro e fechamento comercial é do usuário e/ou da instituição responsável pela operação.`;
+O Closer.IA é uma ferramenta de apoio. A responsabilidade pelo atendimento, oferta, comunicação, registro e fechamento comercial é do usuário e/ou da instituição responsável pela operação.`;
 
   const termsText = await getSettingValue('TERMS_OF_USE_TEXT') || defaultTerms;
   return sendSuccess(res, { terms: termsText }, 'Termos de uso e LGPD obtidos com sucesso.');

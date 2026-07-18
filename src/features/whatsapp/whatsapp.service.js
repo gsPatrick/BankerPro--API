@@ -64,7 +64,7 @@ const handleIncomingAudio = async ({ cleanSender, messageKey, durationSeconds })
   const { user, plan } = await resolverUsuarioPorNumero(cleanSender);
 
   if (!user) {
-    await wpProvider.sendMessage(cleanSender, `Olá! Sou o assistente do BankerPro. 🤖\n\nEste número não está cadastrado em nenhuma conta ativa.\n\nAcesse a plataforma, vá no seu Perfil e configure o seu número de WhatsApp para usar o Copiloto e a Análise de Áudio no celular!`);
+    await wpProvider.sendMessage(cleanSender, `Olá! Sou o assistente do Closer.IA. 🤖\n\nEste número não está cadastrado em nenhuma conta ativa.\n\nAcesse a plataforma, vá no seu Perfil e configure o seu número de WhatsApp para usar o Copiloto e a Análise de Áudio no celular!`);
     return { success: false, reason: 'User not found' };
   }
 
@@ -159,7 +159,7 @@ const enviarOtpVinculo = async (cleanSender) => {
 
   await wpProvider.sendMessage(
     cleanSender,
-    `🔐 *BankerPro • Código de verificação*\n\n` +
+    `🔐 *Closer.IA • Código de verificação*\n\n` +
     `Use o código abaixo para conectar este WhatsApp à sua conta:\n\n` +
     `\`\`\`${code}\`\`\`\n\n` +
     `⏱️ Válido por *10 minutos*.\n` +
@@ -181,7 +181,7 @@ export const verifyLinkCode = async (userId, code) => {
   });
 
   if (!otp) {
-    throw new AppError('Código inválido ou expirado. Gere um novo enviando outra mensagem ao WhatsApp do BankerPro.', 400, 'INVALID_LINK_CODE');
+    throw new AppError('Código inválido ou expirado. Gere um novo enviando outra mensagem ao WhatsApp do Closer.IA.', 400, 'INVALID_LINK_CODE');
   }
 
   // O número é único por conta: se já estava em outra, solta de lá antes (e
@@ -286,7 +286,7 @@ export const handleIncomingWebhook = async (payload) => {
     });
 
     if (!user) {
-      const errorMsg = `Olá! Sou o assistente de Inteligência Artificial do BankerPro. 🤖\n\nIdentifiquei que este número de WhatsApp não está cadastrado em nenhuma conta ativa do sistema.\n\nPor favor, faça login na plataforma BankerPro, acesse o seu Perfil e configure o número de WhatsApp correto para habilitar o modo Copiloto no seu celular!`;
+      const errorMsg = `Olá! Sou o assistente de Inteligência Artificial do Closer.IA. 🤖\n\nIdentifiquei que este número de WhatsApp não está cadastrado em nenhuma conta ativa do sistema.\n\nPor favor, faça login na plataforma Closer.IA, acesse o seu Perfil e configure o número de WhatsApp correto para habilitar o modo Copiloto no seu celular!`;
       await wpProvider.sendMessage(senderNumber, errorMsg);
       return { success: false, reason: 'User not found' };
     }
@@ -309,7 +309,7 @@ export const handleIncomingWebhook = async (payload) => {
 
     // 3) Gerar a resposta com o LLM (Anthropic Claude) usando os prompts do Copiloto e a base de conhecimento de produtos
     const copilotPrompt = await SystemPrompt.findOne({ where: { key: 'simulation_copilot' } });
-    const basePrompt = copilotPrompt ? copilotPrompt.content : `Você é o Copiloto de Simulações BankerPro. Seu objetivo é ajudar o bancário a contornar as piores objeções de vendas de consórcios, empréstimos, seguros, etc. Responda em tom profissional, focado em vendas e gatilhos mentais.`;
+    const basePrompt = copilotPrompt ? copilotPrompt.content : `Você é o Copiloto de Simulações Closer.IA. Seu objetivo é ajudar o bancário a contornar as piores objeções de vendas de consórcios, empréstimos, seguros, etc. Responda em tom profissional, focado em vendas e gatilhos mentais.`;
 
     const knowledgeList = await ProductKnowledge.findAll();
     const knowledgeContext = knowledgeList.map(k => 

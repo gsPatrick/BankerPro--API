@@ -23,7 +23,7 @@ export const createCheckoutPreference = async (userId, userEmail, planType, pric
       body: JSON.stringify({
         items: [
           {
-            title: `Assinatura BankerPro - Plano ${planType.toUpperCase()}`,
+            title: `Assinatura Closer.IA - Plano ${planType.toUpperCase()}`,
             quantity: 1,
             unit_price: price,
             currency_id: 'BRL'
@@ -118,7 +118,7 @@ export const createPreapproval = async (userId, userEmail, planType, price, card
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        reason: `Assinatura BankerPro - Plano ${planType.toUpperCase()}`,
+        reason: `Assinatura Closer.IA - Plano ${planType.toUpperCase()}`,
         external_reference: JSON.stringify({ userId, planType }),
         back_url: 'https://bankerpro-bankerpro--front.wohb2u.easypanel.host/subscription/success',
         payer_email: userEmail,
@@ -175,7 +175,7 @@ export const createPixPayment = async (userId, userEmail, planType, price, docNu
       },
       body: JSON.stringify({
         transaction_amount: price,
-        description: `Assinatura BankerPro - Plano ${planType.toUpperCase()}`,
+        description: `Assinatura Closer.IA - Plano ${planType.toUpperCase()}`,
         payment_method_id: 'pix',
         payer: {
           email: userEmail,
