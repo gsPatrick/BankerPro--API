@@ -24,11 +24,24 @@ export const getInstanceStatus = async () => {
     }
 
     const data = await response.json();
-    const status = data.instance?.state || 'DISCONNECTED';
+
+    // O estado vem em caminhos diferentes conforme a versão da Evolution. Lemos
+    // de todos os prováveis e normalizamos: "open"/"connected"/"online" = conectado.
+    const rawState = data.instance?.state
+      ?? data.state
+      ?? data.instance?.status
+      ?? data.status
+      ?? null;
+
+    const estaConectado = ['open', 'connected', 'online'].includes(String(rawState || '').toLowerCase());
+    const status = estaConectado ? 'CONNECTED' : (rawState ? String(rawState).toUpperCase() : 'DISCONNECTED');
+
+    // Loga a resposta crua para diagnosticar diferenças de versão da Evolution.
+    console.log(`ℹ️ Status da instância WhatsApp — bruto: ${JSON.stringify(data)} | normalizado: ${status}`);
 
     let qrcode = null;
-    // Se a instância estiver criada mas não estiver ativa/conectada, busca o QR Code
-    if (status !== 'CONNECTED' && status !== 'open') {
+    // Só busca o QR Code se realmente NÃO estiver conectado.
+    if (!estaConectado) {
       try {
         const connectResponse = await fetch(`${url}/instance/connect/copilot`, {
           headers: {
