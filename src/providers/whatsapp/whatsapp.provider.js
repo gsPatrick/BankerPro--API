@@ -209,21 +209,36 @@ export const setWebhook = async (webhookUrl) => {
   }
 };
 
+/**
+ * Garante o 9º dígito em celular brasileiro. Números chegam do WhatsApp com 12
+ * dígitos (55 + DDD + 8), mas quem ENTREGA de verdade costuma ser o de 13 dígitos
+ * (com o 9 depois do DDD). Só mexe em celular BR (começa com 55, 12 dígitos, e o
+ * primeiro dígito do assinante é 6-9); qualquer outro número passa intacto.
+ */
+const garantirNoveBrasil = (digitos) => {
+  if (/^55\d{2}[6-9]\d{7}$/.test(digitos)) {
+    return `${digitos.slice(0, 4)}9${digitos.slice(4)}`;
+  }
+  return digitos;
+};
+
 export const sendMessage = async (number, text) => {
   const { url, apiKey } = await getEvolutionConfig();
-  // Envia direto pelo número, como antes (sem consultar o JID na Evolution).
-  const formattedNumber = number.replace(/\D/g, '');
+  const numeroCru = number.replace(/\D/g, '');
+  const formattedNumber = garantirNoveBrasil(numeroCru);
+  if (formattedNumber !== numeroCru) {
+    console.log(`🔢 9º dígito ajustado: ${numeroCru} → ${formattedNumber}`);
+  }
 
-  // Formato v1 (com `presence: 'composing'` + `delay`) — é o que estava ENTREGANDO
-  // antes. O typing/delay deixa o envio mais humano; sem isso, o WhatsApp costuma
-  // aceitar (201) mas não entregar (fica PENDING). Por isso ele vem PRIMEIRO.
+  // A Evolution do projeto é v2: corpo plano { number, text }. O delay simula
+  // digitação e evita que o WhatsApp aceite mas não entregue (PENDING).
+  const corpoV2 = { number: formattedNumber, text, delay: 1200 };
+  // v1 (texto aninhado) só como reserva, caso a instância seja de uma versão antiga.
   const corpoV1 = {
     number: formattedNumber,
     options: { delay: 1200, presence: 'composing' },
     textMessage: { text }
   };
-  // Formato v2 (plano) como reserva, também com delay para manter o comportamento humano.
-  const corpoV2 = { number: formattedNumber, text, delay: 1200 };
 
   const tentar = async (corpo) => {
     const response = await fetch(`${url}/message/sendText/copilot`, {
@@ -236,12 +251,12 @@ export const sendMessage = async (number, text) => {
   };
 
   try {
-    let formato = 'v1';
-    let r = await tentar(corpoV1);
+    let formato = 'v2';
+    let r = await tentar(corpoV2);
     if (!r.ok) {
-      console.warn(`⚠️ sendText (formato v1) recusado (${r.status}): ${r.texto}. Tentando formato v2...`);
-      formato = 'v2';
-      r = await tentar(corpoV2);
+      console.warn(`⚠️ sendText (formato v2) recusado (${r.status}): ${r.texto}. Tentando formato v1...`);
+      formato = 'v1';
+      r = await tentar(corpoV1);
     }
 
     if (!r.ok) {
