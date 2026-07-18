@@ -151,36 +151,41 @@ export const setWebhook = async (webhookUrl) => {
 export const sendMessage = async (number, text) => {
   const { url, apiKey } = await getEvolutionConfig();
   const formattedNumber = number.replace(/\D/g, '');
-  
-  try {
+
+  // O corpo do sendText mudou entre versões da Evolution: a v2 espera { number,
+  // text } plano; a v1 espera o texto aninhado em textMessage. Tentamos a v2
+  // primeiro e, se recusada, caímos na v1 — assim funciona nas duas.
+  const corpoV2 = { number: formattedNumber, text };
+  const corpoV1 = {
+    number: formattedNumber,
+    options: { delay: 1000, presence: 'composing' },
+    textMessage: { text }
+  };
+
+  const tentar = async (corpo) => {
     const response = await fetch(`${url}/message/sendText/copilot`, {
       method: 'POST',
-      headers: {
-        'apikey': apiKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        number: formattedNumber,
-        options: {
-          delay: 1000,
-          presence: 'composing'
-        },
-        textMessage: {
-          text: text
-        }
-      })
+      headers: { 'apikey': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo)
     });
+    const texto = await response.text();
+    return { ok: response.ok, status: response.status, texto };
+  };
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || response.statusText);
+  try {
+    let r = await tentar(corpoV2);
+    if (!r.ok) {
+      console.warn(`⚠️ sendText (formato v2) recusado (${r.status}): ${r.texto}. Tentando formato v1...`);
+      r = await tentar(corpoV1);
     }
 
-    const data = await response.json();
-    return data;
+    if (!r.ok) {
+      throw new Error(`${r.status} — ${r.texto}`);
+    }
+    return { ok: true };
   } catch (error) {
-    console.error(`Erro ao enviar mensagem para ${formattedNumber} no Evolution API:`, error);
-    throw new AppError(`Falha ao enviar mensagem de WhatsApp: ${error.message}`, 500);
+    console.error(`❌ Erro ao enviar mensagem para ${formattedNumber} no Evolution:`, error.message);
+    throw new AppError(`Falha ao enviar mensagem de WhatsApp: ${error.message}`, 500, 'WHATSAPP_SEND_FAILED');
   }
 };
 

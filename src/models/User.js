@@ -48,6 +48,14 @@ export default class User extends Model {
         type: DataTypes.STRING,
         allowNull: true,
         unique: true
+      },
+      // Só é true quando o número foi confirmado pelo próprio WhatsApp (via OTP),
+      // capturado do JID que a Evolution envia. Um número digitado no perfil NÃO
+      // conta como vinculado — pode estar errado e o Copiloto não acharia a conta.
+      whatsappVerified: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
       }
     }, {
       sequelize,

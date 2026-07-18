@@ -168,11 +168,16 @@ export const verifyLinkCode = async (userId, code) => {
     throw new AppError('Código inválido ou expirado. Gere um novo enviando outra mensagem ao WhatsApp do BankerPro.', 400, 'INVALID_LINK_CODE');
   }
 
-  // O número é único por conta: se já estava em outra, solta de lá antes.
-  await User.update({ whatsapp: null }, { where: { whatsapp: otp.whatsapp } });
+  // O número é único por conta: se já estava em outra, solta de lá antes (e
+  // desmarca a verificação de lá).
+  await User.update(
+    { whatsapp: null, whatsappVerified: false },
+    { where: { whatsapp: otp.whatsapp } }
+  );
 
   const user = await User.findByPk(userId);
   user.whatsapp = otp.whatsapp;
+  user.whatsappVerified = true; // confirmado pelo próprio WhatsApp
   await user.save();
 
   // Consome o código.
@@ -192,9 +197,14 @@ export const getLinkInfo = async (userId) => {
   const activeSub = await Subscription.findOne({ where: { userId, status: 'active' } });
   const plan = activeSub ? await Plan.findOne({ where: { key: activeSub.plan } }) : null;
 
+  // Só reporta como vinculado o número confirmado pelo WhatsApp. Um número apenas
+  // digitado no perfil (verified=false) aparece como NÃO conectado, para o usuário
+  // fazer o vínculo por OTP.
+  const verificado = Boolean(user?.whatsappVerified && user?.whatsapp);
+
   return {
     copilotNumber: numeroCopiloto || null,
-    linkedWhatsapp: user?.whatsapp || null,
+    linkedWhatsapp: verificado ? user.whatsapp : null,
     hasCopilot: Boolean(plan?.permissions?.includes('whatsapp_copilot')),
     hasAudio: Boolean(plan?.permissions?.includes('analise_audio'))
   };
@@ -212,11 +222,13 @@ export const handleIncomingWebhook = async (payload) => {
     const senderNumber = remoteJid.split('@')[0];
     const cleanSender = senderNumber.replace(/\D/g, '');
 
-    // Número ainda não vinculado a nenhuma conta: em vez de recusar, iniciamos a
-    // vinculação — geramos um OTP e mandamos de volta. O usuário digita esse
-    // código no painel, e como o número veio direto do WhatsApp (não digitado à
-    // mão), o vínculo fica sempre correto.
-    const vinculado = await User.findOne({ where: { whatsapp: cleanSender } });
+    // Número ainda não vinculado E VERIFICADO por nenhuma conta: em vez de
+    // recusar, iniciamos a vinculação — geramos um OTP e mandamos de volta. Só
+    // conta como vinculado o número confirmado pelo próprio WhatsApp (via OTP);
+    // um número digitado no perfil não vale, porque pode estar errado.
+    const vinculado = await User.findOne({
+      where: { whatsapp: cleanSender, whatsappVerified: true }
+    });
     if (!vinculado) {
       return await enviarOtpVinculo(cleanSender);
     }
