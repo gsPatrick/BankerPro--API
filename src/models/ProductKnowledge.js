@@ -16,7 +16,9 @@ export default class ProductKnowledge extends Model {
         type: DataTypes.STRING,
         allowNull: false,
         validate: {
-          isIn: [['Investimentos', 'Previdência', 'Seguros', 'Crédito', 'Cartões', 'Consórcio', 'Capitalização']]
+          // "Geral" cobre conhecimentos que não são de um produto específico
+          // (abordagem, cross-sell, plano B, persistência comercial, etc.).
+          isIn: [['Geral', 'Investimentos', 'Previdência', 'Seguros', 'Crédito', 'Cartões', 'Consórcio', 'Capitalização']]
         }
       },
       content: {
