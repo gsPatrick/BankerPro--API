@@ -78,6 +78,45 @@ export const getInstanceStatus = async () => {
   }
 };
 
+/**
+ * Descobre o número (MSISDN) da conta que está conectada na instância "copilot".
+ * A Evolution expõe isso no `ownerJid`/`owner` de fetchInstances quando conectada.
+ * Retorna só os dígitos, ou null se não estiver conectada / não encontrado.
+ */
+export const getConnectedNumber = async () => {
+  const { url, apiKey } = await getEvolutionConfig();
+  try {
+    const response = await fetch(`${url}/instance/fetchInstances`, {
+      headers: { 'apikey': apiKey }
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json();
+
+    // O formato varia entre versões: pode vir um array direto ou { instances: [] },
+    // e cada item pode ter os campos soltos ou aninhados em "instance".
+    const lista = Array.isArray(data) ? data : (data.instances || data.data || []);
+    const alvo = (Array.isArray(lista) ? lista : [])
+      .map((item) => item?.instance || item)
+      .find((inst) => (inst?.instanceName || inst?.name) === 'copilot');
+
+    if (!alvo) {
+      return null;
+    }
+
+    const bruto = alvo.ownerJid || alvo.owner || alvo.wuid || alvo.number || null;
+    if (!bruto) {
+      return null;
+    }
+    const digitos = String(bruto).split('@')[0].replace(/\D/g, '');
+    return digitos || null;
+  } catch (error) {
+    console.error('Erro ao buscar o número conectado no Evolution:', error.message);
+    return null;
+  }
+};
+
 export const createInstance = async () => {
   const { url, apiKey } = await getEvolutionConfig();
   try {

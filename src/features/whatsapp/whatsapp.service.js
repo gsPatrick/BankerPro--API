@@ -5,6 +5,7 @@ import * as wpProvider from '../../providers/whatsapp/whatsapp.provider.js';
 import { User, Subscription, SystemPrompt, ProductKnowledge, Plan, AudioAnalysis, WhatsappOtp } from '../../models/index.js';
 import { invokeLLM } from '../../providers/anthropic/anthropic.provider.js';
 import { getSettingValue } from '../../utils/settings-resolver.js';
+import { saveSetting } from '../admin/services/admin-settings.service.js';
 import * as audioAnalysisService from '../audio-analysis/audio-analysis.service.js';
 import { enqueueWhatsappAnalysis } from '../../queues/audio.queue.js';
 import AppError from '../../utils/app-error.js';
@@ -22,6 +23,24 @@ export const getStatus = async (appUrl) => {
   if (statusInfo.exists && appUrl) {
     const webhookUrl = `${appUrl}/api/v1/whatsapp/webhook`;
     await wpProvider.setWebhook(webhookUrl);
+  }
+
+  // Quando conectada, captura o número da conta conectada e salva no
+  // WHATSAPP_COPILOT_NUMBER automaticamente — assim o admin não precisa digitar,
+  // e a tela do usuário passa a mostrar o número certo para mandar mensagem.
+  if (statusInfo.status === 'CONNECTED') {
+    try {
+      const numeroConectado = await wpProvider.getConnectedNumber();
+      if (numeroConectado) {
+        const atual = await getSettingValue('WHATSAPP_COPILOT_NUMBER');
+        if ((atual || '').replace(/\D/g, '') !== numeroConectado) {
+          await saveSetting('WHATSAPP_COPILOT_NUMBER', numeroConectado);
+          console.log(`✅ Número do Copiloto capturado automaticamente: ${numeroConectado}`);
+        }
+      }
+    } catch (err) {
+      console.error('Não foi possível capturar o número conectado automaticamente:', err.message);
+    }
   }
 
   return statusInfo;
@@ -208,7 +227,23 @@ export const verifyLinkCode = async (userId, code) => {
 
 // Informações para a tela de conectar: número a mandar mensagem e status atual.
 export const getLinkInfo = async (userId) => {
-  const numeroCopiloto = await getSettingValue('WHATSAPP_COPILOT_NUMBER');
+  let numeroCopiloto = await getSettingValue('WHATSAPP_COPILOT_NUMBER');
+
+  // Se o admin ainda não visitou a tela de status (que salva o número), mas a
+  // instância já está conectada, buscamos o número direto da Evolution e salvamos
+  // — assim o usuário nunca vê "número não configurado" com o bot já conectado.
+  if (!numeroCopiloto) {
+    try {
+      const numeroConectado = await wpProvider.getConnectedNumber();
+      if (numeroConectado) {
+        await saveSetting('WHATSAPP_COPILOT_NUMBER', numeroConectado);
+        numeroCopiloto = numeroConectado;
+      }
+    } catch {
+      // silencioso: se a Evolution não responder, cai no fluxo de "não configurado"
+    }
+  }
+
   const user = await User.findByPk(userId);
   const activeSub = await Subscription.findOne({ where: { userId, status: 'active' } });
   const plan = activeSub ? await Plan.findOne({ where: { key: activeSub.plan } }) : null;
