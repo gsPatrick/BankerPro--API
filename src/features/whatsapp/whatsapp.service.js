@@ -169,7 +169,21 @@ export const processWhatsappAudioJob = async ({ userId, sender, messageKey, dura
 // Gera um código de 6 dígitos, guarda ligado ao número e o envia de volta pelo
 // WhatsApp para o usuário digitar no painel.
 const enviarOtpVinculo = async (cleanSender) => {
-  // Só o mais recente vale: apaga códigos antigos deste número.
+  // Anti-spam: se já existe um código VÁLIDO (não expirado) para este número, NÃO
+  // manda outro. O usuário recebe o OTP uma vez e, enquanto ele valer (10 min), as
+  // próximas mensagens dele não geram novo envio. Só depois que expira — se ainda
+  // não vinculou — um novo código é gerado. Isso evita disparar em rajada e reduz o
+  // risco de o WhatsApp bloquear o número por comportamento de robô.
+  const valido = await WhatsappOtp.findOne({
+    where: { whatsapp: cleanSender, expiresAt: { [Op.gt]: new Date() } },
+    order: [['created_at', 'DESC']]
+  });
+  if (valido) {
+    console.log(`⏳ Já existe um OTP válido para ${cleanSender} — não reenvia (anti-spam).`);
+    return { success: true, reason: 'otp_still_valid' };
+  }
+
+  // Não há código válido: limpa qualquer um expirado e gera um novo.
   await WhatsappOtp.destroy({ where: { whatsapp: cleanSender } });
 
   const code = String(Math.floor(100000 + Math.random() * 900000));
