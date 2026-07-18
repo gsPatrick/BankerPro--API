@@ -100,24 +100,51 @@ export const deleteInstance = async () => {
 
 export const setWebhook = async (webhookUrl) => {
   const { url, apiKey } = await getEvolutionConfig();
-  try {
+
+  // Formatos aceitos variam entre versões da Evolution: as v2 esperam o corpo
+  // aninhado em "webhook", as v1 esperam plano. Tentamos o aninhado e, se a
+  // Evolution recusar, caímos no plano — assim funciona nas duas.
+  const corpoV2 = {
+    webhook: {
+      enabled: true,
+      url: webhookUrl,
+      webhookByEvents: false,
+      events: ['MESSAGES_UPSERT']
+    }
+  };
+  const corpoV1 = {
+    enabled: true,
+    url: webhookUrl,
+    webhookByEvents: false,
+    events: ['MESSAGES_UPSERT']
+  };
+
+  const tentar = async (corpo) => {
     const response = await fetch(`${url}/webhook/set/copilot`, {
       method: 'POST',
-      headers: {
-        'apikey': apiKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        enabled: true,
-        url: webhookUrl,
-        webhookByEvents: false,
-        events: ['MESSAGES_UPSERT']
-      })
+      headers: { 'apikey': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo)
     });
-    const data = await response.json();
-    return data;
+    const texto = await response.text();
+    return { ok: response.ok, status: response.status, texto };
+  };
+
+  try {
+    let r = await tentar(corpoV2);
+    if (!r.ok) {
+      console.warn(`⚠️ Webhook (formato v2) recusado (${r.status}): ${r.texto}. Tentando formato v1...`);
+      r = await tentar(corpoV1);
+    }
+
+    if (r.ok) {
+      console.log(`🔗 Webhook do WhatsApp configurado com sucesso em: ${webhookUrl}`);
+    } else {
+      console.error(`❌ Falha ao configurar o webhook do WhatsApp (${r.status}): ${r.texto}`);
+    }
+    return { ok: r.ok, status: r.status };
   } catch (error) {
-    console.error('Erro ao configurar webhook no Evolution:', error);
+    console.error('❌ Erro de comunicação ao configurar o webhook no Evolution:', error.message);
+    return { ok: false, error: error.message };
   }
 };
 
