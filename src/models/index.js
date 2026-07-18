@@ -20,6 +20,7 @@ import SystemPrompt from './SystemPrompt.js';
 import SystemSetting from './SystemSetting.js';
 import UserDeviceSession from './UserDeviceSession.js';
 import AudioAnalysis from './AudioAnalysis.js';
+import WhatsappOtp from './WhatsappOtp.js';
 
 const env = process.env.NODE_ENV || 'development';
 const config = databaseConfig[env];
@@ -49,7 +50,8 @@ const db = {
   SystemPrompt,
   SystemSetting,
   UserDeviceSession,
-  AudioAnalysis
+  AudioAnalysis,
+  WhatsappOtp
 };
 
 // Initialize all models
@@ -89,7 +91,8 @@ export {
   SystemPrompt,
   SystemSetting,
   UserDeviceSession,
-  AudioAnalysis
+  AudioAnalysis,
+  WhatsappOtp
 };
 
 export default db;

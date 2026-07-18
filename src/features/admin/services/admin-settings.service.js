@@ -10,6 +10,9 @@ export const listSettings = async () => {
     'OPENAI_API_KEY',
     'EVOLUTION_API_URL',
     'EVOLUTION_API_KEY',
+    // Número do WhatsApp do Copiloto que o usuário deve mandar mensagem para
+    // vincular a conta. Mostrado na tela "Conectar WhatsApp".
+    'WHATSAPP_COPILOT_NUMBER',
     'TERMS_OF_USE_TEXT'
   ];
 

@@ -1,10 +1,13 @@
 import fs from 'fs';
 import path from 'path';
+import { Op } from 'sequelize';
 import * as wpProvider from '../../providers/whatsapp/whatsapp.provider.js';
-import { User, Subscription, SystemPrompt, ProductKnowledge, Plan, AudioAnalysis } from '../../models/index.js';
+import { User, Subscription, SystemPrompt, ProductKnowledge, Plan, AudioAnalysis, WhatsappOtp } from '../../models/index.js';
 import { invokeLLM } from '../../providers/anthropic/anthropic.provider.js';
+import { getSettingValue } from '../../utils/settings-resolver.js';
 import * as audioAnalysisService from '../audio-analysis/audio-analysis.service.js';
 import { enqueueWhatsappAnalysis } from '../../queues/audio.queue.js';
+import AppError from '../../utils/app-error.js';
 
 export const getStatus = async (appUrl) => {
   let statusInfo = await wpProvider.getInstanceStatus();
@@ -133,6 +136,70 @@ export const processWhatsappAudioJob = async ({ userId, sender, messageKey, dura
   }
 };
 
+// Gera um código de 6 dígitos, guarda ligado ao número e o envia de volta pelo
+// WhatsApp para o usuário digitar no painel.
+const enviarOtpVinculo = async (cleanSender) => {
+  // Só o mais recente vale: apaga códigos antigos deste número.
+  await WhatsappOtp.destroy({ where: { whatsapp: cleanSender } });
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
+  await WhatsappOtp.create({ whatsapp: cleanSender, code, expiresAt });
+
+  await wpProvider.sendMessage(
+    cleanSender,
+    `👋 Olá! Sou o assistente do BankerPro.\n\nPara conectar este WhatsApp à sua conta, seu código de verificação é:\n\n*${code}*\n\nDigite-o no painel, na tela "Conectar WhatsApp". Ele vale por 10 minutos.`
+  );
+
+  return { success: true, reason: 'otp_sent' };
+};
+
+/**
+ * Vincula o número ao usuário logado a partir do código que ele recebeu no
+ * WhatsApp. Chamado pelo endpoint do painel (usuário autenticado).
+ */
+export const verifyLinkCode = async (userId, code) => {
+  const otp = await WhatsappOtp.findOne({
+    where: { code: String(code).trim(), expiresAt: { [Op.gt]: new Date() } },
+    order: [['created_at', 'DESC']]
+  });
+
+  if (!otp) {
+    throw new AppError('Código inválido ou expirado. Gere um novo enviando outra mensagem ao WhatsApp do BankerPro.', 400, 'INVALID_LINK_CODE');
+  }
+
+  // O número é único por conta: se já estava em outra, solta de lá antes.
+  await User.update({ whatsapp: null }, { where: { whatsapp: otp.whatsapp } });
+
+  const user = await User.findByPk(userId);
+  user.whatsapp = otp.whatsapp;
+  await user.save();
+
+  // Consome o código.
+  await WhatsappOtp.destroy({ where: { whatsapp: otp.whatsapp } });
+
+  const activeSub = await Subscription.findOne({ where: { userId, status: 'active' } });
+  const plan = activeSub ? await Plan.findOne({ where: { key: activeSub.plan } }) : null;
+  const hasCopilot = Boolean(plan?.permissions?.includes('whatsapp_copilot'));
+
+  return { linked: true, whatsapp: otp.whatsapp, hasCopilot };
+};
+
+// Informações para a tela de conectar: número a mandar mensagem e status atual.
+export const getLinkInfo = async (userId) => {
+  const numeroCopiloto = await getSettingValue('WHATSAPP_COPILOT_NUMBER');
+  const user = await User.findByPk(userId);
+  const activeSub = await Subscription.findOne({ where: { userId, status: 'active' } });
+  const plan = activeSub ? await Plan.findOne({ where: { key: activeSub.plan } }) : null;
+
+  return {
+    copilotNumber: numeroCopiloto || null,
+    linkedWhatsapp: user?.whatsapp || null,
+    hasCopilot: Boolean(plan?.permissions?.includes('whatsapp_copilot')),
+    hasAudio: Boolean(plan?.permissions?.includes('analise_audio'))
+  };
+};
+
 export const handleIncomingWebhook = async (payload) => {
   try {
     const remoteJid = payload.data?.key?.remoteJid;
@@ -144,6 +211,15 @@ export const handleIncomingWebhook = async (payload) => {
 
     const senderNumber = remoteJid.split('@')[0];
     const cleanSender = senderNumber.replace(/\D/g, '');
+
+    // Número ainda não vinculado a nenhuma conta: em vez de recusar, iniciamos a
+    // vinculação — geramos um OTP e mandamos de volta. O usuário digita esse
+    // código no painel, e como o número veio direto do WhatsApp (não digitado à
+    // mão), o vínculo fica sempre correto.
+    const vinculado = await User.findOne({ where: { whatsapp: cleanSender } });
+    if (!vinculado) {
+      return await enviarOtpVinculo(cleanSender);
+    }
 
     // Extrai o texto da mensagem recebida
     const messageObj = payload.data?.message;
