@@ -215,6 +215,20 @@ Permite visualizar ou atualizar as chaves de integração do sistema.
 
 Permite listar, criar, editar ou excluir tópicos de conhecimento sobre produtos (que o Copiloto da IA consulta para guiar o bancário).
 
+Tabela: `product_knowledges`
+
+#### 📋 Campos do tópico
+
+| Campo | Tipo | Obrigatório | Observação |
+|---|---|---|---|
+| `topicTitle` | texto | ✅ | Título do tópico |
+| `category` | texto | ✅ | Precisa ser um dos valores válidos (ver abaixo) |
+| `content` | texto | — | Conteúdo do conhecimento |
+
+* **Categorias válidas (`category`):** `Geral`, `Investimentos`, `Previdência`, `Seguros`, `Crédito`, `Cartões`, `Consórcio`, `Capitalização`
+  * Os nomes são validados **exatamente** (case-sensitive). Um valor fora da lista é recusado com `Validation isIn on category failed`. Atenção aos plurais: é `Seguros` (não `Seguro`) e `Cartões` (não `Cartão`).
+  * **`Geral`** é para conhecimentos que **não são de um produto específico** — abordagem humanizada, cross-sell, plano B, sem crédito disponível, produto já contratado, persistência comercial, oferta completa, régua de renda, transição após resolver problema, abordagem sem valor específico, etc.
+
 #### 🔹 Listar todos os tópicos
 * **Método:** `GET`
 * **Endpoint:** `/knowledge`
@@ -228,6 +242,14 @@ Permite listar, criar, editar ou excluir tópicos de conhecimento sobre produtos
     "topicTitle": "Argumentação de Consórcio Imobiliário",
     "category": "Consórcio",
     "content": "Argumentos-chave sobre taxa de administração competitiva e parcelas flexíveis..."
+  }
+  ```
+* **Exemplo com a categoria `Geral`:**
+  ```json
+  {
+    "topicTitle": "Abordagem humanizada na abertura",
+    "category": "Geral",
+    "content": "Antes de ofertar qualquer produto, acolha o cliente e faça o diagnóstico da necessidade real..."
   }
   ```
 
@@ -605,6 +627,8 @@ Recursos principais:
 Produtos válidos em opportunities: Consórcio, Financiamento, Empréstimo, Consignado, Cartão de Crédito, Seguro de Vida, Capitalização.
 Canais: Ligação, WhatsApp, Presencial. Status: Ativo | Inativo.
 Não recomendar investimentos; saldo/aplicação só como contexto de perfil.
+
+Em knowledge, os campos são topicTitle, category e content. A category é validada exatamente (case-sensitive) contra: Geral, Investimentos, Previdência, Seguros, Crédito, Cartões, Consórcio, Capitalização (repare nos plurais: Seguros e Cartões). Valor fora da lista é recusado com "Validation isIn on category failed". Use Geral para conhecimentos que não são de um produto específico (abordagem, cross-sell, plano B, persistência comercial, oferta completa, etc.).
 
 Em plans, permissions é o que libera as telas do assinante. Use GET/POST /plans e PUT/DELETE /plans/:id — nunca SQL cru, que aceita key inválida sem erro.
 Keys válidas: cenarios, historico, ranking, carteira, agenda, metas, anotacoes, copiloto, oportunidades, gerador, analise_audio, whatsapp_copilot (confirme em GET /plans/features).
