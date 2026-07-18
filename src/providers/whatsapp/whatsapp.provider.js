@@ -50,14 +50,21 @@ export const getInstanceStatus = async () => {
         });
         if (connectResponse.ok) {
           const connectData = await connectResponse.json();
-          let base64 = connectData.base64 || connectData.qrcode?.base64 || null;
+          let base64 = connectData.base64 || connectData.qrcode?.base64 || connectData.qr || null;
           if (base64 && !base64.startsWith('data:')) {
             base64 = `data:image/png;base64,${base64}`;
           }
+          const pairingCode = connectData.pairingCode || connectData.qrcode?.pairingCode || null;
           qrcode = {
             base64,
-            code: connectData.code || connectData.qrcode?.code || null
+            code: connectData.code || connectData.qrcode?.code || null,
+            pairingCode
           };
+          // Loga se o QR/código de pareamento veio, sem despejar o base64 inteiro.
+          console.log(`ℹ️ QR do WhatsApp — campos: ${Object.keys(connectData).join(', ')} | tem base64: ${Boolean(base64)} | pairingCode: ${pairingCode || '—'}`);
+        } else {
+          const detalhe = await connectResponse.text().catch(() => '');
+          console.warn(`⚠️ /instance/connect recusado (${connectResponse.status}): ${detalhe}`);
         }
       } catch (err) {
         console.error('Erro ao buscar QR code no Evolution connect:', err);
