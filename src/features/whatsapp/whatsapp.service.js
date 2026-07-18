@@ -186,6 +186,7 @@ const enviarOtpVinculo = async (cleanSender) => {
     `_Se não foi você, é só ignorar esta mensagem._`
   );
 
+  console.log(`✅ OTP de vínculo enviado para ${cleanSender}.`);
   return { success: true, reason: 'otp_sent' };
 };
 
@@ -263,10 +264,16 @@ export const getLinkInfo = async (userId) => {
 
 export const handleIncomingWebhook = async (payload) => {
   try {
+    // Loga a chegada e o formato do evento — assim dá para ver se a Evolution está
+    // mesmo chamando o webhook e em que estrutura (cortado para não despejar mídia).
+    const evento = payload?.event || payload?.type || 'desconhecido';
+    console.log(`📥 Webhook WhatsApp recebido — evento: ${evento} | payload: ${JSON.stringify(payload).slice(0, 600)}`);
+
     const remoteJid = payload.data?.key?.remoteJid;
     const fromMe = payload.data?.key?.fromMe;
 
     if (fromMe || !remoteJid) {
+      console.log(`↩️ Webhook ignorado — evento: ${evento} | fromMe: ${fromMe} | remoteJid: ${remoteJid || 'ausente'}`);
       return { success: true, reason: 'Ignored outbound message' };
     }
 
@@ -281,6 +288,7 @@ export const handleIncomingWebhook = async (payload) => {
       where: { whatsapp: cleanSender, whatsappVerified: true }
     });
     if (!vinculado) {
+      console.log(`🔑 Número ${cleanSender} não vinculado — enviando OTP de vínculo.`);
       return await enviarOtpVinculo(cleanSender);
     }
 

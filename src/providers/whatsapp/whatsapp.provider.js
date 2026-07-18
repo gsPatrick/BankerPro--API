@@ -196,7 +196,9 @@ export const setWebhook = async (webhookUrl) => {
     }
 
     if (r.ok) {
-      console.log(`🔗 Webhook do WhatsApp configurado com sucesso em: ${webhookUrl}`);
+      // Loga o que a Evolution guardou — confirma se os eventos de mensagem
+      // (MESSAGES_UPSERT) ficaram mesmo inscritos, que é o que dispara o webhook.
+      console.log(`🔗 Webhook do WhatsApp configurado em: ${webhookUrl} | resposta: ${r.texto?.slice(0, 400)}`);
     } else {
       console.error(`❌ Falha ao configurar o webhook do WhatsApp (${r.status}): ${r.texto}`);
     }
