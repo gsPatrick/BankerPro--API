@@ -69,11 +69,19 @@ const handleIncomingAudio = async ({ cleanSender, messageKey, durationSeconds })
   }
 
   if (!planoLibera(plan, 'analise_audio')) {
-    await wpProvider.sendMessage(cleanSender, `Olá, ${user.fullName || 'Usuário'}! Recebi o seu áudio, mas o seu plano atual (${plan ? plan.name : 'sem plano ativo'}) não inclui a Análise de Áudio.\n\nFaça um upgrade no painel da plataforma para receber a análise das suas negociações por aqui!`);
+    await wpProvider.sendMessage(
+      cleanSender,
+      `🎧 Olá, *${user.fullName || 'tudo bem'}*!\n\n` +
+      `Recebi o seu áudio, mas o seu plano *${plan ? plan.name : 'atual'}* ainda não inclui a *Análise de Áudio*.\n\n` +
+      `Faça um upgrade no painel para receber a análise das suas negociações por aqui. 🚀`
+    );
     return { success: false, reason: 'Plan not authorized' };
   }
 
-  await wpProvider.sendMessage(cleanSender, '🎧 Recebi o seu áudio! Estou ouvindo a negociação e já te mando a análise. Leva alguns instantes.');
+  await wpProvider.sendMessage(
+    cleanSender,
+    `🎧 *Áudio recebido!*\n\nJá estou ouvindo a negociação e preparando a sua análise. Isso leva alguns instantes... ⏳`
+  );
 
   const jobData = { userId: user.id, sender: cleanSender, messageKey, durationSeconds };
 
@@ -125,7 +133,10 @@ export const processWhatsappAudioJob = async ({ userId, sender, messageKey, dura
       source: 'whatsapp'
     });
 
-    await wpProvider.sendMessage(sender, `${resultado.analysis}\n\n———\n📊 A análise completa também ficou salva no seu histórico da plataforma.`);
+    await wpProvider.sendMessage(
+      sender,
+      `${resultado.analysis}\n\n━━━━━━━━━━━━━━━\n📊 Análise salva também no seu *histórico* na plataforma.`
+    );
   } catch (error) {
     console.error('Erro ao analisar áudio recebido no WhatsApp:', error);
     // Garante que o arquivo não fique órfão se falhou antes da transcrição.
@@ -148,7 +159,12 @@ const enviarOtpVinculo = async (cleanSender) => {
 
   await wpProvider.sendMessage(
     cleanSender,
-    `👋 Olá! Sou o assistente do BankerPro.\n\nPara conectar este WhatsApp à sua conta, seu código de verificação é:\n\n*${code}*\n\nDigite-o no painel, na tela "Conectar WhatsApp". Ele vale por 10 minutos.`
+    `🔐 *BankerPro • Código de verificação*\n\n` +
+    `Use o código abaixo para conectar este WhatsApp à sua conta:\n\n` +
+    `\`\`\`${code}\`\`\`\n\n` +
+    `⏱️ Válido por *10 minutos*.\n` +
+    `Volte ao painel, abra a tela *Conectar WhatsApp* e digite o código. ✅\n\n` +
+    `_Se não foi você, é só ignorar esta mensagem._`
   );
 
   return { success: true, reason: 'otp_sent' };
@@ -283,7 +299,10 @@ export const handleIncomingWebhook = async (payload) => {
     const hasWhatsappAccess = plan && plan.permissions && plan.permissions.includes('whatsapp_copilot');
 
     if (!hasWhatsappAccess) {
-      const freeMsg = `Olá, ${user.fullName || 'Usuário'}! Identificamos a sua conta BankerPro, mas o seu plano atual (${plan ? plan.name : 'Gratuito'}) não possui acesso ao Copiloto via WhatsApp.\n\nAssine ou faça upgrade para um plano com acesso ao Copiloto via WhatsApp no painel da plataforma para liberar esta funcionalidade no seu celular!`;
+      const freeMsg =
+        `👋 Olá, *${user.fullName || 'tudo bem'}*!\n\n` +
+        `Sua conta foi reconhecida, mas o seu plano *${plan ? plan.name : 'atual'}* ainda não inclui o *Copiloto no WhatsApp*.\n\n` +
+        `Faça um upgrade no painel para liberar o assistente de vendas aqui no seu WhatsApp. 🚀`;
       await wpProvider.sendMessage(senderNumber, freeMsg);
       return { success: false, reason: 'Plan not authorized' };
     }
