@@ -209,55 +209,10 @@ export const setWebhook = async (webhookUrl) => {
   }
 };
 
-/**
- * Pergunta à Evolution qual é o JID real de um número. Isso corrige o problema do
- * 9º dígito no Brasil: o número pode chegar com 12 dígitos (sem o 9), mas o que
- * está registrado no WhatsApp tem 13 (com o 9). A Evolution devolve o JID canônico,
- * que é para onde a mensagem realmente entrega. Retorna só os dígitos, ou null se
- * não conseguir resolver (aí o chamador usa o número como veio).
- */
-const resolverNumeroReal = async (url, apiKey, numeroDigitos) => {
-  try {
-    const response = await fetch(`${url}/chat/whatsappNumbers/copilot`, {
-      method: 'POST',
-      headers: { 'apikey': apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ numbers: [numeroDigitos] })
-    });
-    if (!response.ok) {
-      const detalhe = await response.text().catch(() => '');
-      console.warn(`⚠️ Checagem de número (whatsappNumbers) indisponível (${response.status}): ${detalhe.slice(0, 200)}`);
-      return null;
-    }
-    const data = await response.json();
-    console.log(`🔎 whatsappNumbers p/ ${numeroDigitos} — resposta: ${JSON.stringify(data).slice(0, 300)}`);
-    const lista = Array.isArray(data) ? data : (data?.numbers || data?.data || []);
-    const item = (Array.isArray(lista) ? lista : [])[0];
-    // Alguns retornos trazem exists:false para número sem WhatsApp — nesse caso não força.
-    if (!item || item.exists === false) {
-      return null;
-    }
-    const jid = item.jid || item.number || null;
-    if (!jid) {
-      return null;
-    }
-    const soDigitos = String(jid).split('@')[0].replace(/\D/g, '');
-    return soDigitos || null;
-  } catch (error) {
-    console.error('Erro ao resolver o número real no Evolution:', error.message);
-    return null;
-  }
-};
-
 export const sendMessage = async (number, text) => {
   const { url, apiKey } = await getEvolutionConfig();
-  const numeroCru = number.replace(/\D/g, '');
-
-  // Resolve o JID canônico (corrige o 9º dígito). Se não der, usa o número como veio.
-  const resolvido = await resolverNumeroReal(url, apiKey, numeroCru);
-  const formattedNumber = resolvido || numeroCru;
-  if (resolvido && resolvido !== numeroCru) {
-    console.log(`🔁 Número ${numeroCru} resolvido para ${formattedNumber} (correção de 9º dígito/JID).`);
-  }
+  // Envia direto pelo número, como antes (sem consultar o JID na Evolution).
+  const formattedNumber = number.replace(/\D/g, '');
 
   // O corpo do sendText mudou entre versões da Evolution: a v2 espera { number,
   // text } plano; a v1 espera o texto aninhado em textMessage. Tentamos a v2
