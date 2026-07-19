@@ -4,10 +4,12 @@ import { User, EmailOtp, UserProfile } from '../../models/index.js';
 import AppError from '../../utils/app-error.js';
 
 const generateToken = (userId) => {
+  // Sessão infinita: o token NÃO expira (sem claim `exp`). O usuário só sai da conta
+  // ao fazer logout manualmente, que apaga o token no dispositivo. Por isso não
+  // passamos `expiresIn` — o JWT_EXPIRES_IN do ambiente é ignorado de propósito.
   return jwt.sign(
     { id: userId },
-    process.env.JWT_SECRET || 'super_secret_jwt_key_bankerpro_change_me_in_production',
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    process.env.JWT_SECRET || 'super_secret_jwt_key_bankerpro_change_me_in_production'
   );
 };
 
