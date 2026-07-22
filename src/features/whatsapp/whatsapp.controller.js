@@ -23,9 +23,18 @@ export const disconnect = catchAsync(async (req, res, next) => {
 });
 
 export const webhook = catchAsync(async (req, res, next) => {
-  // O Evolution API envia as notificações em eventos do webhook
-  const result = await whatsappService.handleIncomingWebhook(req.body);
-  return res.json({ success: true, ...result });
+  // A Z-API envia as notificações de mensagem neste webhook.
+  //
+  // Respondemos 200 na hora e processamos depois: a resposta do Copiloto passa
+  // por uma chamada ao Claude, que leva alguns segundos. Se segurássemos o
+  // webhook até lá, a Z-API poderia estourar o timeout e REENVIAR o evento —
+  // gerando resposta duplicada no chat e cobrança de IA em dobro.
+  const payload = req.body;
+  res.json({ success: true, received: true });
+
+  whatsappService.handleIncomingWebhook(payload).catch((error) => {
+    console.error('Erro não tratado ao processar webhook do WhatsApp:', error);
+  });
 });
 
 // Tela "Conectar WhatsApp": número para mandar mensagem + status do vínculo.

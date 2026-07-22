@@ -50,7 +50,7 @@ export default class User extends Model {
         unique: true
       },
       // Só é true quando o número foi confirmado pelo próprio WhatsApp (via OTP),
-      // capturado do JID que a Evolution envia. Um número digitado no perfil NÃO
+      // capturado do número que a Z-API envia. Um número digitado no perfil NÃO
       // conta como vinculado — pode estar errado e o Copiloto não acharia a conta.
       whatsappVerified: {
         type: DataTypes.BOOLEAN,

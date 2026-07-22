@@ -11,15 +11,12 @@ import { enqueueWhatsappAnalysis } from '../../queues/audio.queue.js';
 import AppError from '../../utils/app-error.js';
 
 export const getStatus = async (appUrl) => {
-  let statusInfo = await wpProvider.getInstanceStatus();
-  
-  if (!statusInfo.exists) {
-    console.log('🔄 Instância "copilot" não existe no Evolution. Criando agora...');
-    await wpProvider.createInstance();
-    statusInfo = await wpProvider.getInstanceStatus();
-  }
+  const statusInfo = await wpProvider.getInstanceStatus();
 
-  // Se estiver criada, garante o webhook configurado apontando de volta para a API
+  // Na Z-API a instância é criada no painel — não há o que criar por API aqui.
+  // Se o /status não responde, é credencial errada e o painel mostra o erro.
+
+  // Se a instância responde, garante o webhook apontando de volta para a API
   if (statusInfo.exists && appUrl) {
     const webhookUrl = `${appUrl}/api/v1/whatsapp/webhook`;
     await wpProvider.setWebhook(webhookUrl);
@@ -76,10 +73,10 @@ const planoLibera = (plan, featureKey) =>
  * Áudio recebido no WhatsApp vira Análise de Negociação. Aqui só validamos e
  * confirmamos o recebimento na hora; o trabalho pesado (baixar a mídia,
  * transcrever, analisar) vai para a fila e responde o feedback quando terminar.
- * Assim o webhook fecha rápido — a Evolution não dá timeout nem reenvia a
+ * Assim o webhook fecha rápido — a Z-API não dá timeout nem reenvia a
  * mensagem (o que causava análise e cobrança duplicadas).
  */
-const handleIncomingAudio = async ({ cleanSender, messageKey, durationSeconds }) => {
+const handleIncomingAudio = async ({ cleanSender, audioUrl, mimeType, durationSeconds }) => {
   const { user, plan } = await resolverUsuarioPorNumero(cleanSender);
 
   if (!user) {
@@ -102,7 +99,7 @@ const handleIncomingAudio = async ({ cleanSender, messageKey, durationSeconds })
     `🎧 *Áudio recebido!*\n\nJá estou ouvindo a negociação e preparando a sua análise. Isso leva alguns instantes... ⏳`
   );
 
-  const jobData = { userId: user.id, sender: cleanSender, messageKey, durationSeconds };
+  const jobData = { userId: user.id, sender: cleanSender, audioUrl, mimeType, durationSeconds };
 
   const job = await enqueueWhatsappAnalysis(jobData);
   if (job) {
@@ -124,12 +121,12 @@ const handleIncomingAudio = async ({ cleanSender, messageKey, durationSeconds })
  * no fallback síncrono): baixa a mídia, transcreve, analisa, salva no histórico e
  * responde o feedback no chat.
  */
-export const processWhatsappAudioJob = async ({ userId, sender, messageKey, durationSeconds }) => {
+export const processWhatsappAudioJob = async ({ userId, sender, audioUrl, mimeType, durationSeconds }) => {
   const tmpDir = './uploads/audio-tmp';
   let filePath = null;
 
   try {
-    const { buffer, mimetype } = await wpProvider.downloadMedia(messageKey);
+    const { buffer, mimetype } = await wpProvider.downloadMedia({ audioUrl, mimeType });
 
     // A extensão precisa refletir o formato: é por ela que a transcrição decide
     // o mime type. O WhatsApp grava em ogg/opus.
@@ -190,17 +187,20 @@ const enviarOtpVinculo = async (cleanSender) => {
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
   await WhatsappOtp.create({ whatsapp: cleanSender, code, expiresAt });
 
-  await wpProvider.sendMessage(
-    cleanSender,
-    `🔐 *Closer.IA • Código de verificação*\n\n` +
-    `Use o código abaixo para conectar este WhatsApp à sua conta:\n\n` +
-    `\`\`\`${code}\`\`\`\n\n` +
-    `⏱️ Válido por *10 minutos*.\n` +
-    `Volte ao painel, abra a tela *Conectar WhatsApp* e digite o código. ✅\n\n` +
-    `_Se não foi você, é só ignorar esta mensagem._`
-  );
+  // Vai com o botão nativo "Copiar código" do WhatsApp; se a conta não puder
+  // enviar botões, o provider cai sozinho no texto simples com o código.
+  const { withButton } = await wpProvider.sendOtpCode(cleanSender, {
+    code,
+    buttonText: 'Copiar código',
+    message:
+      `🔐 *Closer.IA • Código de verificação*\n\n` +
+      `Use o código abaixo para conectar este WhatsApp à sua conta:\n\n` +
+      `⏱️ Válido por *10 minutos*.\n` +
+      `Volte ao painel, abra a tela *Conectar WhatsApp* e cole o código. ✅\n\n` +
+      `_Se não foi você, é só ignorar esta mensagem._`
+  });
 
-  console.log(`✅ OTP de vínculo enviado para ${cleanSender}.`);
+  console.log(`✅ OTP de vínculo enviado para ${cleanSender} (botão de copiar: ${withButton ? 'sim' : 'não'}).`);
   return { success: true, reason: 'otp_sent' };
 };
 
@@ -245,7 +245,7 @@ export const getLinkInfo = async (userId) => {
   let numeroCopiloto = await getSettingValue('WHATSAPP_COPILOT_NUMBER');
 
   // Se o admin ainda não visitou a tela de status (que salva o número), mas a
-  // instância já está conectada, buscamos o número direto da Evolution e salvamos
+  // instância já está conectada, buscamos o número direto da Z-API e salvamos
   // — assim o usuário nunca vê "número não configurado" com o bot já conectado.
   if (!numeroCopiloto) {
     try {
@@ -255,7 +255,7 @@ export const getLinkInfo = async (userId) => {
         numeroCopiloto = numeroConectado;
       }
     } catch {
-      // silencioso: se a Evolution não responder, cai no fluxo de "não configurado"
+      // silencioso: se a Z-API não responder, cai no fluxo de "não configurado"
     }
   }
 
@@ -278,21 +278,37 @@ export const getLinkInfo = async (userId) => {
 
 export const handleIncomingWebhook = async (payload) => {
   try {
-    // Loga a chegada e o formato do evento — assim dá para ver se a Evolution está
+    // Loga a chegada e o formato do evento — assim dá para ver se a Z-API está
     // mesmo chamando o webhook e em que estrutura (cortado para não despejar mídia).
-    const evento = payload?.event || payload?.type || 'desconhecido';
+    const evento = payload?.type || 'desconhecido';
     console.log(`📥 Webhook WhatsApp recebido — evento: ${evento} | payload: ${JSON.stringify(payload).slice(0, 600)}`);
 
-    const remoteJid = payload.data?.key?.remoteJid;
-    const fromMe = payload.data?.key?.fromMe;
-
-    if (fromMe || !remoteJid) {
-      console.log(`↩️ Webhook ignorado — evento: ${evento} | fromMe: ${fromMe} | remoteJid: ${remoteJid || 'ausente'}`);
-      return { success: true, reason: 'Ignored outbound message' };
+    // A Z-API manda vários tipos no mesmo endpoint (entrega, status, presença).
+    // Só "ReceivedCallback" é mensagem de entrada; o resto se descarta aqui.
+    if (evento !== 'ReceivedCallback') {
+      return { success: true, reason: `Ignored event ${evento}` };
     }
 
-    const senderNumber = remoteJid.split('@')[0];
-    const cleanSender = senderNumber.replace(/\D/g, '');
+    // O webhook é público (a Z-API não assina o payload). Sem esta checagem,
+    // qualquer um que descubra a URL manda um JSON forjado e faz a API gastar
+    // Claude e disparar WhatsApp para números arbitrários. O instanceId não é
+    // público, então ele serve de segredo compartilhado.
+    const instanciaEsperada = await getSettingValue('ZAPI_INSTANCE_ID');
+    if (instanciaEsperada && payload.instanceId !== instanciaEsperada) {
+      console.warn(`🚫 Webhook recusado — instanceId inesperado: ${payload.instanceId || 'ausente'}`);
+      return { success: false, reason: 'Unknown instance' };
+    }
+
+    const fromMe = Boolean(payload.fromMe);
+    const isGroup = Boolean(payload.isGroup);
+    const senderNumber = payload.phone;
+
+    if (fromMe || isGroup || !senderNumber) {
+      console.log(`↩️ Webhook ignorado — fromMe: ${fromMe} | isGroup: ${isGroup} | phone: ${senderNumber || 'ausente'}`);
+      return { success: true, reason: 'Ignored outbound/group message' };
+    }
+
+    const cleanSender = String(senderNumber).replace(/\D/g, '');
 
     // Número ainda não vinculado E VERIFICADO por nenhuma conta: em vez de
     // recusar, iniciamos a vinculação — geramos um OTP e mandamos de volta. Só
@@ -306,21 +322,23 @@ export const handleIncomingWebhook = async (payload) => {
       return await enviarOtpVinculo(cleanSender);
     }
 
-    // Extrai o texto da mensagem recebida
-    const messageObj = payload.data?.message;
-    const incomingText = messageObj?.conversation ||
-                         messageObj?.extendedTextMessage?.text ||
-                         messageObj?.imageMessage?.caption ||
+    // Extrai o texto da mensagem recebida (Z-API: text.message; legenda de imagem
+    // vem em image.caption; resposta de botão/lista tem o rótulo escolhido).
+    const incomingText = payload.text?.message ||
+                         payload.image?.caption ||
+                         payload.buttonsResponseMessage?.message ||
+                         payload.listResponseMessage?.title ||
                          '';
 
     // Áudio segue outro caminho: vira Análise de Negociação, não conversa com o
     // Copiloto. Precisa vir antes da checagem de texto, que descarta tudo que
     // não é texto.
-    const audioMessage = messageObj?.audioMessage;
-    if (audioMessage) {
+    const audioMessage = payload.audio;
+    if (audioMessage?.audioUrl) {
       return await handleIncomingAudio({
         cleanSender,
-        messageKey: payload.data?.key,
+        audioUrl: audioMessage.audioUrl,
+        mimeType: audioMessage.mimeType || null,
         durationSeconds: audioMessage.seconds || null
       });
     }

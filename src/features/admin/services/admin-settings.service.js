@@ -8,8 +8,11 @@ export const listSettings = async () => {
     // Usada só para transcrever o áudio da Análise de Áudio: a API da Anthropic
     // não recebe som. Toda a análise continua no Claude.
     'OPENAI_API_KEY',
-    'EVOLUTION_API_URL',
-    'EVOLUTION_API_KEY',
+    // Z-API (WhatsApp). ID e token vêm da instância no painel da Z-API; o
+    // Client-Token é o "token de segurança da conta" (opcional, mas recomendado).
+    'ZAPI_INSTANCE_ID',
+    'ZAPI_INSTANCE_TOKEN',
+    'ZAPI_CLIENT_TOKEN',
     // Número do WhatsApp do Copiloto que o usuário deve mandar mensagem para
     // vincular a conta. Mostrado na tela "Conectar WhatsApp".
     'WHATSAPP_COPILOT_NUMBER',

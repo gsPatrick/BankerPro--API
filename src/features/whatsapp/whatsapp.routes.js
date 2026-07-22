@@ -4,7 +4,7 @@ import { requireAuth, requireRole } from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
-// Endpoint público para receber webhook do Evolution API
+// Endpoint público para receber webhook da Z-API
 router.post('/webhook', whatsappController.webhook);
 
 // Conexão do WhatsApp do próprio usuário (vínculo por OTP)

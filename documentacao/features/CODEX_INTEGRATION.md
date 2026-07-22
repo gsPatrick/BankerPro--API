@@ -388,7 +388,7 @@ Permite que a IA visualize ou modifique o texto dos Termos de Uso e Consentiment
 
 ### 7. Controle da Conexão do WhatsApp Copilot (`/whatsapp`)
 
-Permite monitorar, conectar ou desconectar a instância do WhatsApp Copilot diretamente na Evolution API.
+Permite monitorar, conectar ou desconectar a instância do WhatsApp Copilot diretamente na Z-API.
 
 #### 🔹 Obter status e QR Code de pareamento
 * **Método:** `GET`

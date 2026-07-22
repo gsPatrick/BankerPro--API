@@ -1,187 +1,176 @@
 import AppError from '../../utils/app-error.js';
 import { getSettingValue } from '../../utils/settings-resolver.js';
 
-const getEvolutionConfig = async () => {
-  const url = await getSettingValue('EVOLUTION_API_URL') || 'https://bankerpro-evolution-api.wohb2u.easypanel.host';
-  const apiKey = await getSettingValue('EVOLUTION_API_KEY') || '429683C4C977415CAAFCCE10F7D57E11';
-  return { url, apiKey };
+/**
+ * Provider de WhatsApp — Z-API (https://developer.z-api.io).
+ *
+ * Toda chamada vai para {base}/instances/{ID}/token/{TOKEN}/{rota} e leva o
+ * header `Client-Token` (o "token de segurança da conta" do painel da Z-API).
+ * Diferente da Evolution, a instância NÃO é criada por API: ela nasce no painel
+ * da Z-API e aqui só a consultamos, conectamos e desconectamos.
+ */
+const getZapiConfig = async () => {
+  const base = (await getSettingValue('ZAPI_BASE_URL') || 'https://api.z-api.io').trim().replace(/\/+$/, '');
+  const instanceId = (await getSettingValue('ZAPI_INSTANCE_ID') || '').trim();
+  const instanceToken = (await getSettingValue('ZAPI_INSTANCE_TOKEN') || '').trim();
+  const clientToken = (await getSettingValue('ZAPI_CLIENT_TOKEN') || '').trim();
+
+  if (!instanceId || !instanceToken) {
+    throw new AppError('Z-API não configurada: informe ZAPI_INSTANCE_ID e ZAPI_INSTANCE_TOKEN nas Configurações.', 500, 'ZAPI_NOT_CONFIGURED');
+  }
+
+  return {
+    url: `${base}/instances/${instanceId}/token/${instanceToken}`,
+    clientToken
+  };
 };
 
+// Headers padrão. O Client-Token só vai quando configurado — a conta pode estar
+// com o token de segurança desligado, e mandar vazio faria a Z-API recusar.
+const montarHeaders = (clientToken) => {
+  const headers = { 'Content-Type': 'application/json' };
+  if (clientToken) headers['Client-Token'] = clientToken;
+  return headers;
+};
+
+/**
+ * Status da instância. Mantém o mesmo formato que o painel já consome:
+ * { exists, status, qrcode: { base64 } }.
+ */
 export const getInstanceStatus = async () => {
-  const { url, apiKey } = await getEvolutionConfig();
+  let url;
+  let clientToken;
   try {
-    const response = await fetch(`${url}/instance/connectionState/copilot`, {
-      headers: {
-        'apikey': apiKey
-      }
-    });
+    ({ url, clientToken } = await getZapiConfig());
+  } catch (error) {
+    return { exists: false, status: 'NOT_CONFIGURED', error: error.message };
+  }
+
+  try {
+    const response = await fetch(`${url}/status`, { headers: montarHeaders(clientToken) });
 
     if (!response.ok) {
-      if (response.status === 404) {
-        return { exists: false, status: 'NOT_FOUND' };
-      }
-      throw new Error(`State error: ${response.statusText}`);
+      const detalhe = await response.text().catch(() => '');
+      console.warn(`⚠️ /status da Z-API recusado (${response.status}): ${detalhe}`);
+      // 4xx aqui é credencial/instância errada — não é "existe mas caiu".
+      return { exists: false, status: 'ERROR', error: `${response.status} — ${detalhe.slice(0, 200)}` };
     }
 
     const data = await response.json();
+    const estaConectado = Boolean(data?.connected);
+    const status = estaConectado ? 'CONNECTED' : 'DISCONNECTED';
 
-    // O estado vem em caminhos diferentes conforme a versão da Evolution. Lemos
-    // de todos os prováveis e normalizamos: "open"/"connected"/"online" = conectado.
-    const rawState = data.instance?.state
-      ?? data.state
-      ?? data.instance?.status
-      ?? data.status
-      ?? null;
-
-    const estaConectado = ['open', 'connected', 'online'].includes(String(rawState || '').toLowerCase());
-    const status = estaConectado ? 'CONNECTED' : (rawState ? String(rawState).toUpperCase() : 'DISCONNECTED');
-
-    // Loga a resposta crua para diagnosticar diferenças de versão da Evolution.
-    console.log(`ℹ️ Status da instância WhatsApp — bruto: ${JSON.stringify(data)} | normalizado: ${status}`);
+    console.log(`ℹ️ Status da instância Z-API — bruto: ${JSON.stringify(data)} | normalizado: ${status}`);
 
     let qrcode = null;
-    // Só busca o QR Code se realmente NÃO estiver conectado.
+    // Só pede o QR quando realmente não está conectado.
     if (!estaConectado) {
       try {
-        const connectResponse = await fetch(`${url}/instance/connect/copilot`, {
-          headers: {
-            'apikey': apiKey
-          }
-        });
-        if (connectResponse.ok) {
-          const connectData = await connectResponse.json();
-          let base64 = connectData.base64 || connectData.qrcode?.base64 || connectData.qr || null;
+        const qrResponse = await fetch(`${url}/qr-code/image`, { headers: montarHeaders(clientToken) });
+        if (qrResponse.ok) {
+          const qrData = await qrResponse.json();
+          // A Z-API devolve { value: "data:image/png;base64,..." }; toleramos a
+          // string crua e o base64 sem o prefixo data:.
+          let base64 = typeof qrData === 'string' ? qrData : (qrData?.value || null);
           if (base64 && !base64.startsWith('data:')) {
             base64 = `data:image/png;base64,${base64}`;
           }
-          const pairingCode = connectData.pairingCode || connectData.qrcode?.pairingCode || null;
-          qrcode = {
-            base64,
-            code: connectData.code || connectData.qrcode?.code || null,
-            pairingCode
-          };
-          // Loga se o QR/código de pareamento veio, sem despejar o base64 inteiro.
-          console.log(`ℹ️ QR do WhatsApp — campos: ${Object.keys(connectData).join(', ')} | tem base64: ${Boolean(base64)} | pairingCode: ${pairingCode || '—'}`);
+          qrcode = { base64, code: null, pairingCode: null };
+          console.log(`ℹ️ QR do WhatsApp (Z-API) — tem base64: ${Boolean(base64)}`);
         } else {
-          const detalhe = await connectResponse.text().catch(() => '');
-          console.warn(`⚠️ /instance/connect recusado (${connectResponse.status}): ${detalhe}`);
+          const detalhe = await qrResponse.text().catch(() => '');
+          console.warn(`⚠️ /qr-code/image recusado (${qrResponse.status}): ${detalhe}`);
         }
       } catch (err) {
-        console.error('Erro ao buscar QR code no Evolution connect:', err);
+        console.error('Erro ao buscar QR code na Z-API:', err.message);
       }
     }
 
     return { exists: true, status, qrcode };
   } catch (error) {
-    console.error('Erro ao verificar status da instância no Evolution:', error);
+    console.error('Erro ao verificar status da instância na Z-API:', error);
     return { exists: false, status: 'ERROR', error: error.message };
   }
 };
 
 /**
- * Descobre o número (MSISDN) da conta que está conectada na instância "copilot".
- * A Evolution expõe isso no `ownerJid`/`owner` de fetchInstances quando conectada.
- * Retorna só os dígitos, ou null se não estiver conectada / não encontrado.
+ * Número (MSISDN) da conta conectada. Na Z-API vem do endpoint /device.
+ * Retorna só os dígitos, ou null se não estiver conectada.
  */
 export const getConnectedNumber = async () => {
-  const { url, apiKey } = await getEvolutionConfig();
   try {
-    const response = await fetch(`${url}/instance/fetchInstances`, {
-      headers: { 'apikey': apiKey }
-    });
+    const { url, clientToken } = await getZapiConfig();
+    const response = await fetch(`${url}/device`, { headers: montarHeaders(clientToken) });
     if (!response.ok) {
       return null;
     }
     const data = await response.json();
-
-    // O formato varia entre versões: pode vir um array direto ou { instances: [] },
-    // e cada item pode ter os campos soltos ou aninhados em "instance".
-    const lista = Array.isArray(data) ? data : (data.instances || data.data || []);
-    const alvo = (Array.isArray(lista) ? lista : [])
-      .map((item) => item?.instance || item)
-      .find((inst) => (inst?.instanceName || inst?.name) === 'copilot');
-
-    if (!alvo) {
-      return null;
-    }
-
-    const bruto = alvo.ownerJid || alvo.owner || alvo.wuid || alvo.number || null;
-    if (!bruto) {
-      return null;
-    }
+    const bruto = data?.phone || data?.me?.user || null;
+    if (!bruto) return null;
     const digitos = String(bruto).split('@')[0].replace(/\D/g, '');
     return digitos || null;
   } catch (error) {
-    console.error('Erro ao buscar o número conectado no Evolution:', error.message);
+    console.error('Erro ao buscar o número conectado na Z-API:', error.message);
     return null;
   }
 };
 
+/**
+ * Na Z-API a instância é criada/paga no painel, não por API. Aqui só
+ * verificamos se as credenciais respondem — o "conectar" de verdade é ler o QR
+ * Code que o /status já devolve.
+ */
 export const createInstance = async () => {
-  const { url, apiKey } = await getEvolutionConfig();
-  try {
-    const response = await fetch(`${url}/instance/create`, {
-      method: 'POST',
-      headers: {
-        'apikey': apiKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        instanceName: 'copilot',
-        token: 'copilot_secure_token_123',
-        qrcode: true,
-        integration: 'WHATSAPP-BAILEYS'
-      })
-    });
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    throw new AppError(`Falha ao criar instância no Evolution API: ${error.message}`, 500);
-  }
+  const info = await getInstanceStatus();
+  return {
+    managed: false,
+    message: 'A instância da Z-API é criada no painel da Z-API. Leia o QR Code para conectar o número.',
+    ...info
+  };
 };
 
+/** Desconecta o número da instância (equivale ao "logout" do WhatsApp Web). */
 export const deleteInstance = async () => {
-  const { url, apiKey } = await getEvolutionConfig();
+  const { url, clientToken } = await getZapiConfig();
   try {
-    const response = await fetch(`${url}/instance/delete/copilot`, {
-      method: 'DELETE',
-      headers: {
-        'apikey': apiKey
-      }
+    const response = await fetch(`${url}/disconnect`, {
+      method: 'GET',
+      headers: montarHeaders(clientToken)
     });
-    const data = await response.json();
-    return data;
+    const texto = await response.text();
+    if (!response.ok) {
+      throw new Error(`${response.status} — ${texto}`);
+    }
+    try {
+      return JSON.parse(texto);
+    } catch {
+      return { ok: true, raw: texto };
+    }
   } catch (error) {
-    throw new AppError(`Falha ao remover instância no Evolution API: ${error.message}`, 500);
+    throw new AppError(`Falha ao desconectar a instância na Z-API: ${error.message}`, 500);
   }
 };
 
+/**
+ * Registra a URL do nosso webhook na Z-API.
+ *
+ * A Z-API só aceita webhook em HTTPS. Usamos `update-webhook-received` (só
+ * mensagens recebidas), que é o que o Copiloto precisa; se a conta/versão não
+ * expuser essa rota, caímos em `update-every-webhooks` — nesse caso chegam
+ * também callbacks de entrega/status, que o handler descarta pelo `type`.
+ */
 export const setWebhook = async (webhookUrl) => {
-  const { url, apiKey } = await getEvolutionConfig();
+  const { url, clientToken } = await getZapiConfig();
 
-  // Formatos aceitos variam entre versões da Evolution: as v2 esperam o corpo
-  // aninhado em "webhook", as v1 esperam plano. Tentamos o aninhado e, se a
-  // Evolution recusar, caímos no plano — assim funciona nas duas.
-  const corpoV2 = {
-    webhook: {
-      enabled: true,
-      url: webhookUrl,
-      webhookByEvents: false,
-      events: ['MESSAGES_UPSERT']
-    }
-  };
-  const corpoV1 = {
-    enabled: true,
-    url: webhookUrl,
-    webhookByEvents: false,
-    events: ['MESSAGES_UPSERT']
-  };
+  if (!/^https:\/\//i.test(webhookUrl)) {
+    console.error(`❌ A Z-API só aceita webhook HTTPS. URL recusada: ${webhookUrl}`);
+    return { ok: false, error: 'WEBHOOK_MUST_BE_HTTPS' };
+  }
 
-  const tentar = async (corpo) => {
-    const response = await fetch(`${url}/webhook/set/copilot`, {
-      method: 'POST',
-      headers: { 'apikey': apiKey, 'Content-Type': 'application/json' },
+  const tentar = async (rota, corpo) => {
+    const response = await fetch(`${url}/${rota}`, {
+      method: 'PUT',
+      headers: montarHeaders(clientToken),
       body: JSON.stringify(corpo)
     });
     const texto = await response.text();
@@ -189,22 +178,22 @@ export const setWebhook = async (webhookUrl) => {
   };
 
   try {
-    let r = await tentar(corpoV2);
+    // notifySentByMe: false — não queremos eco das mensagens que nós mesmos
+    // enviamos (isso geraria loop de resposta do Copiloto).
+    let r = await tentar('update-webhook-received', { value: webhookUrl, notifySentByMe: false });
     if (!r.ok) {
-      console.warn(`⚠️ Webhook (formato v2) recusado (${r.status}): ${r.texto}. Tentando formato v1...`);
-      r = await tentar(corpoV1);
+      console.warn(`⚠️ update-webhook-received recusado (${r.status}): ${r.texto}. Tentando update-every-webhooks...`);
+      r = await tentar('update-every-webhooks', { value: webhookUrl, notifySentByMe: false });
     }
 
     if (r.ok) {
-      // Loga o que a Evolution guardou — confirma se os eventos de mensagem
-      // (MESSAGES_UPSERT) ficaram mesmo inscritos, que é o que dispara o webhook.
-      console.log(`🔗 Webhook do WhatsApp configurado em: ${webhookUrl} | resposta: ${r.texto?.slice(0, 400)}`);
+      console.log(`🔗 Webhook do WhatsApp (Z-API) configurado em: ${webhookUrl} | resposta: ${r.texto?.slice(0, 400)}`);
     } else {
-      console.error(`❌ Falha ao configurar o webhook do WhatsApp (${r.status}): ${r.texto}`);
+      console.error(`❌ Falha ao configurar o webhook do WhatsApp na Z-API (${r.status}): ${r.texto}`);
     }
     return { ok: r.ok, status: r.status };
   } catch (error) {
-    console.error('❌ Erro de comunicação ao configurar o webhook no Evolution:', error.message);
+    console.error('❌ Erro de comunicação ao configurar o webhook na Z-API:', error.message);
     return { ok: false, error: error.message };
   }
 };
@@ -223,94 +212,124 @@ const garantirNoveBrasil = (digitos) => {
 };
 
 export const sendMessage = async (number, text) => {
-  const { url, apiKey } = await getEvolutionConfig();
-  const numeroCru = number.replace(/\D/g, '');
+  const { url, clientToken } = await getZapiConfig();
+  const numeroCru = String(number).replace(/\D/g, '');
   const formattedNumber = garantirNoveBrasil(numeroCru);
   if (formattedNumber !== numeroCru) {
     console.log(`🔢 9º dígito ajustado: ${numeroCru} → ${formattedNumber}`);
   }
 
-  // A Evolution do projeto é v2: corpo plano { number, text }. O delay simula
-  // digitação e evita que o WhatsApp aceite mas não entregue (PENDING).
-  const corpoV2 = { number: formattedNumber, text, delay: 1200 };
-  // v1 (texto aninhado) só como reserva, caso a instância seja de uma versão antiga.
-  const corpoV1 = {
-    number: formattedNumber,
-    options: { delay: 1200, presence: 'composing' },
-    textMessage: { text }
-  };
-
-  const tentar = async (corpo) => {
-    const response = await fetch(`${url}/message/sendText/copilot`, {
-      method: 'POST',
-      headers: { 'apikey': apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify(corpo)
-    });
-    const texto = await response.text();
-    return { ok: response.ok, status: response.status, texto };
+  // delayMessage/delayTyping simulam digitação: reduzem o risco de o WhatsApp
+  // marcar o número como robô. Os valores são em SEGUNDOS na Z-API (1 a 15).
+  const corpo = {
+    phone: formattedNumber,
+    message: text,
+    delayMessage: 2,
+    delayTyping: 1
   };
 
   try {
-    let formato = 'v2';
-    let r = await tentar(corpoV2);
-    if (!r.ok) {
-      console.warn(`⚠️ sendText (formato v2) recusado (${r.status}): ${r.texto}. Tentando formato v1...`);
-      formato = 'v1';
-      r = await tentar(corpoV1);
+    const response = await fetch(`${url}/send-text`, {
+      method: 'POST',
+      headers: montarHeaders(clientToken),
+      body: JSON.stringify(corpo)
+    });
+    const texto = await response.text();
+
+    if (!response.ok) {
+      throw new Error(`${response.status} — ${texto}`);
     }
 
-    if (!r.ok) {
-      throw new Error(`${r.status} — ${r.texto}`);
-    }
-    // Loga o corpo da resposta: um 2xx só confirma que a Evolution aceitou; o corpo
-    // mostra se a mensagem foi de fato enfileirada/enviada (key, status) ou se veio
-    // algo estranho apesar do 2xx.
-    console.log(`📤 sendText (${formato}) para ${formattedNumber} — status ${r.status} | resposta: ${r.texto?.slice(0, 400)}`);
+    // Um 2xx só diz que a Z-API aceitou; o corpo traz zaapId/messageId, que é o
+    // que confirma o enfileiramento de verdade.
+    console.log(`📤 send-text para ${formattedNumber} — status ${response.status} | resposta: ${texto?.slice(0, 400)}`);
     return { ok: true };
   } catch (error) {
-    console.error(`❌ Erro ao enviar mensagem para ${formattedNumber} no Evolution:`, error.message);
+    console.error(`❌ Erro ao enviar mensagem para ${formattedNumber} na Z-API:`, error.message);
     throw new AppError(`Falha ao enviar mensagem de WhatsApp: ${error.message}`, 500, 'WHATSAPP_SEND_FAILED');
   }
 };
 
 /**
- * Baixa a mídia de uma mensagem recebida. O webhook entrega só os metadados do
- * áudio criptografado — os bytes precisam ser pedidos à Evolution, que descriptografa.
+ * Envia um código de verificação com o botão nativo "Copiar código" do WhatsApp.
  *
- * @param {object} messageKey  o objeto `key` da mensagem, vindo do payload do webhook
+ * É o mesmo componente que bancos usam: o usuário toca no botão e o código vai
+ * para a área de transferência, sem precisar selecionar o texto na mão.
+ *
+ * O botão depende de a conta estar apta a enviar botões (ver o status de botões
+ * no painel da Z-API). Se a Z-API recusar, caímos no texto simples — o usuário
+ * ainda recebe o código, só sem o atalho de copiar.
+ */
+export const sendOtpCode = async (number, { code, message, buttonText = 'Copiar código' }) => {
+  const { url, clientToken } = await getZapiConfig();
+  const numeroCru = String(number).replace(/\D/g, '');
+  const formattedNumber = garantirNoveBrasil(numeroCru);
+
+  try {
+    const response = await fetch(`${url}/send-button-otp`, {
+      method: 'POST',
+      headers: montarHeaders(clientToken),
+      body: JSON.stringify({
+        phone: formattedNumber,
+        message,
+        code,
+        buttonText
+      })
+    });
+    const texto = await response.text();
+
+    // Um 2xx sem zaapId significa que a Z-API respondeu mas não enfileirou —
+    // tratamos como falha para cair no texto simples.
+    if (!response.ok || !texto.includes('zaapId')) {
+      throw new Error(`${response.status} — ${texto}`);
+    }
+
+    console.log(`📤 send-button-otp para ${formattedNumber} — status ${response.status} | resposta: ${texto?.slice(0, 400)}`);
+    return { ok: true, withButton: true };
+  } catch (error) {
+    console.warn(`⚠️ Botão de copiar código recusado (${error.message}). Enviando o código como texto simples.`);
+    await sendMessage(number, `${message}\n\n\`\`\`${code}\`\`\``);
+    return { ok: true, withButton: false };
+  }
+};
+
+/**
+ * Baixa a mídia de uma mensagem recebida.
+ *
+ * Na Z-API não existe o passo de descriptografia da Evolution: o webhook já
+ * entrega uma URL pública e temporária (`audio.audioUrl`), válida por 30 dias.
+ * Basta buscar os bytes.
+ *
+ * @param {string|{audioUrl?: string, url?: string}} media  a URL da mídia (ou o objeto de áudio do webhook)
  * @returns {Promise<{buffer: Buffer, mimetype: string}>}
  */
-export const downloadMedia = async (messageKey) => {
-  const { url, apiKey } = await getEvolutionConfig();
+export const downloadMedia = async (media) => {
+  const mediaUrl = typeof media === 'string' ? media : (media?.audioUrl || media?.url || null);
 
-  const response = await fetch(`${url}/chat/getBase64FromMediaMessage/copilot`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': apiKey
-    },
-    body: JSON.stringify({
-      message: { key: messageKey },
-      convertToMp4: false
-    })
-  });
+  if (!mediaUrl) {
+    console.error('downloadMedia chamado sem URL de mídia:', JSON.stringify(media).slice(0, 300));
+    throw new AppError('Não foi possível localizar o áudio enviado no WhatsApp.', 502, 'WHATSAPP_MEDIA_URL_MISSING');
+  }
+
+  const response = await fetch(mediaUrl);
 
   if (!response.ok) {
     const detalhe = await response.text().catch(() => '');
-    console.error('Erro ao baixar mídia do WhatsApp:', response.status, detalhe);
+    console.error('Erro ao baixar mídia do WhatsApp (Z-API):', response.status, detalhe.slice(0, 300));
     throw new AppError('Não foi possível baixar o áudio do WhatsApp.', 502, 'WHATSAPP_MEDIA_DOWNLOAD_FAILED');
   }
 
-  const data = await response.json();
-  const base64 = data?.base64 || data?.media || data?.buffer;
+  const buffer = Buffer.from(await response.arrayBuffer());
 
-  if (!base64) {
-    console.error('Resposta inesperada ao baixar mídia do WhatsApp:', JSON.stringify(data).slice(0, 300));
+  if (!buffer.length) {
     throw new AppError('O áudio recebido veio vazio do WhatsApp.', 502, 'WHATSAPP_MEDIA_EMPTY');
   }
 
-  return {
-    buffer: Buffer.from(base64, 'base64'),
-    mimetype: data?.mimetype || 'audio/ogg'
-  };
+  // O header pode vir com parâmetros ("audio/ogg; codecs=opus") — guardamos só o tipo.
+  const contentType = (response.headers.get('content-type') || '').split(';')[0].trim();
+  const mimetype = (typeof media === 'object' && media?.mimeType ? String(media.mimeType).split(';')[0].trim() : '')
+    || contentType
+    || 'audio/ogg';
+
+  return { buffer, mimetype };
 };
