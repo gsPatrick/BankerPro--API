@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User, EmailOtp, UserProfile } from '../../models/index.js';
 import AppError from '../../utils/app-error.js';
+import { sendWelcomeEmail, sendPasswordResetEmail } from '../email/email.service.js';
 
 const generateToken = (userId) => {
   // Sessão infinita: o token NÃO expira (sem claim `exp`). O usuário só sai da conta
@@ -60,6 +61,12 @@ export const registerUser = async ({ email, password, acceptedTerms, fullName, w
   });
 
   const accessToken = generateToken(user.id);
+
+  // Boas-vindas: dispara sem travar o cadastro. Se o e-mail falhar, o usuário já
+  // está criado e autenticado — o erro fica só no log.
+  sendWelcomeEmail({ to: user.email, fullName: user.fullName }).catch((err) => {
+    console.error('Falha ao enviar e-mail de boas-vindas:', err?.message || err);
+  });
 
   return {
     id: user.id,
@@ -205,6 +212,82 @@ export const loginUser = async ({ email, password }) => {
       avatarUrl: profile?.avatarUrl || null
     }
   };
+};
+
+/**
+ * Passo 1 do "esqueci minha senha": gera um código OTP, guarda e envia por
+ * e-mail. Não revela se o e-mail existe — responde igual em qualquer caso, para
+ * não virar um oráculo de quais e-mails têm conta (enumeração).
+ */
+export const requestPasswordReset = async (email) => {
+  const respostaGenerica = { message: 'Se este e-mail tiver uma conta, enviaremos um código de redefinição.' };
+
+  const user = await User.findOne({ where: { email } });
+  if (!user) {
+    console.log(`ℹ️ Pedido de reset para e-mail sem conta: ${email} — ignorado silenciosamente.`);
+    return respostaGenerica;
+  }
+
+  // Invalida OTPs anteriores deste e-mail antes de gerar o novo.
+  await EmailOtp.update({ used: true }, { where: { email, used: false } });
+
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresMinutes = 10;
+  const expiresAt = new Date(Date.now() + expiresMinutes * 60000);
+
+  await EmailOtp.create({ email, otpCode, expiresAt, used: false });
+
+  await sendPasswordResetEmail({
+    to: user.email,
+    fullName: user.fullName,
+    code: otpCode,
+    expiresMinutes
+  });
+
+  console.log(`🔑 Código de reset de senha gerado para ${email}.`);
+  return respostaGenerica;
+};
+
+/**
+ * Passo 2: valida o código e troca a senha. Consome o OTP no sucesso.
+ */
+export const resetPassword = async ({ email, otpCode, newPassword }) => {
+  if (!newPassword || String(newPassword).length < 6) {
+    throw new AppError('A nova senha deve ter no mínimo 6 caracteres.', 400, 'WEAK_PASSWORD');
+  }
+
+  const otpRecord = await EmailOtp.findOne({
+    where: { email, otpCode: String(otpCode).trim(), used: false },
+    order: [['created_at', 'DESC']]
+  });
+
+  if (!otpRecord) {
+    throw new AppError('Código inválido. Solicite um novo código de redefinição.', 400, 'INVALID_OTP');
+  }
+
+  if (new Date() > new Date(otpRecord.expiresAt)) {
+    throw new AppError('O código expirou. Solicite um novo código de redefinição.', 400, 'OTP_EXPIRED');
+  }
+
+  const user = await User.findOne({ where: { email } });
+  if (!user) {
+    throw new AppError('Usuário não encontrado.', 404, 'USER_NOT_FOUND');
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  user.passwordHash = await bcrypt.hash(newPassword, salt);
+  // Se a conta ainda não tinha e-mail verificado, redefinir a senha pelo código
+  // enviado ao próprio e-mail já prova a posse dele.
+  user.emailVerified = true;
+  await user.save();
+
+  // Consome o código e limpa os demais deste e-mail.
+  otpRecord.used = true;
+  await otpRecord.save();
+  await EmailOtp.update({ used: true }, { where: { email, used: false } });
+
+  console.log(`✅ Senha redefinida com sucesso para ${email}.`);
+  return { message: 'Senha redefinida com sucesso. Faça login com a nova senha.' };
 };
 
 export const listUsersPublic = async () => {

@@ -38,6 +38,28 @@ export const resendOtp = catchAsync(async (req, res, next) => {
   return sendSuccess(res, result, 'Novo código OTP enviado.');
 });
 
+export const forgotPassword = catchAsync(async (req, res, next) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return next(new AppError('E-mail é obrigatório.', 400, 'BAD_REQUEST'));
+  }
+
+  const result = await authService.requestPasswordReset(email);
+  return sendSuccess(res, result, 'Solicitação de redefinição processada.');
+});
+
+export const resetPassword = catchAsync(async (req, res, next) => {
+  const { email, otpCode, newPassword } = req.body;
+
+  if (!email || !otpCode || !newPassword) {
+    return next(new AppError('E-mail, código e nova senha são obrigatórios.', 400, 'BAD_REQUEST'));
+  }
+
+  const result = await authService.resetPassword({ email, otpCode, newPassword });
+  return sendSuccess(res, result, 'Senha redefinida com sucesso.');
+});
+
 export const login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
