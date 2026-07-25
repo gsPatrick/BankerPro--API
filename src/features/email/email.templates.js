@@ -179,8 +179,9 @@ const featureRow = (index, title, desc, isLast) => `
  * @param {string} [opts.fullName]
  * @param {string} [opts.assetBaseUrl]  base das imagens (default: APP_PUBLIC_URL/uploads/email)
  */
-export const renderWelcomeEmail = ({ fullName, assetBaseUrl } = {}) => {
+export const renderWelcomeEmail = ({ fullName, assetBaseUrl, heroSrc } = {}) => {
   const base = (assetBaseUrl || ASSET_BASE_DEFAULT).replace(/\/+$/, '');
+  const bannerImg = heroSrc || `${base}/welcome-hero.jpg`;
   const nome = primeiroNome(fullName);
   const saudacao = nome ? `Bem-vindo, ${nome}.` : 'Bem-vindo ao Closer.IA.';
 
@@ -208,7 +209,7 @@ export const renderWelcomeEmail = ({ fullName, assetBaseUrl } = {}) => {
   const html = baseLayout({
     title: 'Bem-vindo ao Closer.IA',
     previewText: 'Sua conta está pronta. Veja o que dá para fazer no Closer.IA.',
-    bannerImg: `${base}/welcome-hero.jpg`,
+    bannerImg,
     contentHtml
   });
 
@@ -234,8 +235,9 @@ export const renderWelcomeEmail = ({ fullName, assetBaseUrl } = {}) => {
 /**
  * E-mail de redefinição de senha com código OTP.
  */
-export const renderPasswordResetEmail = ({ fullName, code, expiresMinutes = 10, assetBaseUrl } = {}) => {
+export const renderPasswordResetEmail = ({ fullName, code, expiresMinutes = 10, assetBaseUrl, heroSrc } = {}) => {
   const base = (assetBaseUrl || ASSET_BASE_DEFAULT).replace(/\/+$/, '');
+  const bannerImg = heroSrc || `${base}/welcome-hero.jpg`;
   const nome = primeiroNome(fullName);
   const ola = nome ? `Olá, ${nome}.` : 'Olá.';
   const codeSpaced = String(code || '').split('').join('&nbsp;');
@@ -268,7 +270,7 @@ export const renderPasswordResetEmail = ({ fullName, code, expiresMinutes = 10, 
   const html = baseLayout({
     title: 'Seu código de redefinição de senha · Closer.IA',
     previewText: `Seu código é ${code}. Válido por ${expiresMinutes} minutos.`,
-    bannerImg: `${base}/welcome-hero.jpg`,
+    bannerImg,
     contentHtml
   });
 
