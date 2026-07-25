@@ -14,7 +14,7 @@ fs.mkdirSync(outDir, { recursive: true });
 
 // Copia o hero para junto do preview e aponta o banner para o arquivo local,
 // para o preview mostrar a imagem sem depender do deploy.
-const heroSrc = path.join(__dirname, '..', 'uploads', 'email', 'welcome-hero.jpg');
+const heroSrc = path.join(__dirname, '..', 'assets', 'email', 'welcome-hero.jpg');
 if (fs.existsSync(heroSrc)) fs.copyFileSync(heroSrc, path.join(outDir, 'welcome-hero.jpg'));
 
 const welcome = renderWelcomeEmail({ fullName: 'Pedro Henrique Souza', assetBaseUrl: '.' });

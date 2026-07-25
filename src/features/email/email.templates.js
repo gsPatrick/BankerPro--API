@@ -33,12 +33,13 @@ const SUPPORT_EMAIL = 'ola@closeria.com.br';
 // URL da área logada usada nos botões. Configurável para não ficar presa a um
 // domínio; cai no domínio da marca se o ambiente não definir.
 const WEB_URL = (process.env.APP_WEB_URL || 'https://closeria.com.br').replace(/\/+$/, '');
-// Onde as imagens do e-mail estão hospedadas. A API serve /uploads estático, e
-// APP_PUBLIC_URL é o domínio público dela. Imagem de e-mail precisa de URL
-// absoluta e pública — clientes não carregam anexo/local nem base64 (Gmail).
+// Onde as imagens do e-mail estão hospedadas. A API serve /assets estático (pasta
+// versionada no repo, não é volume — ao contrário de /uploads), e APP_PUBLIC_URL
+// é o domínio público dela. Imagem de e-mail precisa de URL absoluta e pública —
+// clientes não carregam anexo/local nem base64 (Gmail).
 const ASSET_BASE_DEFAULT =
   (process.env.APP_PUBLIC_URL || 'https://bankerpro-bankerpro--api.wohb2u.easypanel.host')
-    .replace(/\/+$/, '') + '/uploads/email';
+    .replace(/\/+$/, '') + '/assets/email';
 
 const primeiroNome = (nome) => {
   const n = (nome || '').trim();

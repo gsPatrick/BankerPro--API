@@ -65,6 +65,10 @@ app.use(cors({
 app.use(compression());
 app.use(express.json());
 app.use('/uploads', express.static(path.resolve('uploads')));
+// Estáticos versionados no repo (imagens de e-mail etc). Fica numa pasta própria
+// porque /uploads costuma ser um volume persistente no deploy, que "esconde" os
+// arquivos que vêm no build — /assets não é volume, então serve o que foi commitado.
+app.use('/assets', express.static(path.resolve('assets')));
 
 // Converter chaves de req.body, req.query, req.params de snake_case para camelCase
 app.use((req, res, next) => {
