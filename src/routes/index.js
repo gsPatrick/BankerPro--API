@@ -18,6 +18,7 @@ import codexRoutes from '../features/codex/codex.routes.js';
 import whatsappRoutes from '../features/whatsapp/whatsapp.routes.js';
 import uploadRoutes from '../features/upload/upload.routes.js';
 import audioAnalysisRoutes from '../features/audio-analysis/audio-analysis.routes.js';
+import analyticsRoutes from '../features/analytics/analytics.routes.js';
 import { requireAuth } from '../middlewares/auth.middleware.js';
 import { aiRateLimit } from '../middlewares/rate-limit.middleware.js';
 import * as authController from '../features/auth/auth.controller.js';
@@ -81,6 +82,7 @@ router.use('/opportunity', commercialOpportunityRoutes);
 router.use('/admin', adminRoutes);
 router.use('/codex', codexRoutes);
 router.use('/whatsapp', whatsappRoutes);
+router.use('/analytics', analyticsRoutes);
 router.use('/upload', uploadRoutes);
 
 // Endpoint de ping para testes de conectividade / healthchecks

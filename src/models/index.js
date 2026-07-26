@@ -21,6 +21,9 @@ import SystemSetting from './SystemSetting.js';
 import UserDeviceSession from './UserDeviceSession.js';
 import AudioAnalysis from './AudioAnalysis.js';
 import WhatsappOtp from './WhatsappOtp.js';
+import AnalyticsVisitor from './AnalyticsVisitor.js';
+import AnalyticsSession from './AnalyticsSession.js';
+import AnalyticsEvent from './AnalyticsEvent.js';
 
 const env = process.env.NODE_ENV || 'development';
 const config = databaseConfig[env];
@@ -51,7 +54,10 @@ const db = {
   SystemSetting,
   UserDeviceSession,
   AudioAnalysis,
-  WhatsappOtp
+  WhatsappOtp,
+  AnalyticsVisitor,
+  AnalyticsSession,
+  AnalyticsEvent
 };
 
 // Initialize all models
@@ -92,7 +98,10 @@ export {
   SystemSetting,
   UserDeviceSession,
   AudioAnalysis,
-  WhatsappOtp
+  WhatsappOtp,
+  AnalyticsVisitor,
+  AnalyticsSession,
+  AnalyticsEvent
 };
 
 export default db;
