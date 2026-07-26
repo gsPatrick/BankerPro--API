@@ -123,7 +123,9 @@ export const ingest = async ({ visitorId, sessionId, context = {}, events = [], 
       utmMedium: str(context.utmMedium, 120),
       utmCampaign: str(context.utmCampaign, 160),
       utmTerm: str(context.utmTerm, 160),
-      utmContent: str(context.utmContent, 160)
+      utmContent: str(context.utmContent, 160),
+      fbclid: str(context.fbclid, 300),
+      gclid: str(context.gclid, 300)
     });
     visitor.sessionsCount = (visitor.sessionsCount || 0) + 1;
   } else {

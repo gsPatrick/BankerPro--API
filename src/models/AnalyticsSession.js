@@ -47,6 +47,10 @@ export default class AnalyticsSession extends Model {
       utmCampaign: { type: DataTypes.STRING(160), allowNull: true },
       utmTerm: { type: DataTypes.STRING(160), allowNull: true },
       utmContent: { type: DataTypes.STRING(160), allowNull: true },
+      // IDs de clique dos anúncios: fbclid (Meta = Instagram/Facebook), gclid
+      // (Google). Provam que a visita veio de anúncio, mesmo sem UTM no link.
+      fbclid: { type: DataTypes.STRING(300), allowNull: true },
+      gclid: { type: DataTypes.STRING(300), allowNull: true },
 
       // Contadores e estágio do funil nesta sessão.
       eventsCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },

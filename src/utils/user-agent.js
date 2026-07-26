@@ -5,7 +5,13 @@ export function parseUserAgent(userAgent = '') {
   const ua = String(userAgent || '');
 
   let browser = 'Navegador';
-  if (/Edg\//i.test(ua)) browser = 'Edge';
+  // Navegadores internos (WebView) dos apps primeiro — é como o tráfego de
+  // Instagram/Facebook chega, e a UA "por baixo" é Safari/Chrome, o que
+  // esconderia a origem se checássemos os de sempre antes.
+  if (/Instagram/i.test(ua)) browser = 'Instagram (app)';
+  else if (/FBAN|FBAV|FB_IAB/i.test(ua)) browser = 'Facebook (app)';
+  else if (/BytedanceWebview|musical_ly|TikTok/i.test(ua)) browser = 'TikTok (app)';
+  else if (/Edg\//i.test(ua)) browser = 'Edge';
   else if (/Chrome\//i.test(ua) && !/Edg\//i.test(ua)) browser = 'Chrome';
   else if (/Firefox\//i.test(ua)) browser = 'Firefox';
   else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) browser = 'Safari';
