@@ -33,6 +33,12 @@ export default class AnalyticsSession extends Model {
       screenSize: { type: DataTypes.STRING(20), allowNull: true },
       language: { type: DataTypes.STRING(20), allowNull: true },
 
+      // Geolocalização por IP (melhor esforço).
+      country: { type: DataTypes.STRING(80), allowNull: true },
+      countryCode: { type: DataTypes.STRING(8), allowNull: true },
+      region: { type: DataTypes.STRING(120), allowNull: true },
+      city: { type: DataTypes.STRING(120), allowNull: true },
+
       // Origem do tráfego.
       referrer: { type: DataTypes.STRING(255), allowNull: true },
       landingPath: { type: DataTypes.STRING(255), allowNull: true },

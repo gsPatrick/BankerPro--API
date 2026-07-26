@@ -32,6 +32,12 @@ export default class AnalyticsVisitor extends Model {
       os: { type: DataTypes.STRING(40), allowNull: true },
       browser: { type: DataTypes.STRING(40), allowNull: true },
 
+      // Geolocalização por IP (melhor esforço, enriquecida na ingestão).
+      country: { type: DataTypes.STRING(80), allowNull: true },
+      countryCode: { type: DataTypes.STRING(8), allowNull: true },
+      region: { type: DataTypes.STRING(120), allowNull: true },
+      city: { type: DataTypes.STRING(120), allowNull: true },
+
       // Identificação (preenchida quando a pessoa digita nome/e-mail).
       name: { type: DataTypes.STRING(160), allowNull: true },
       email: { type: DataTypes.STRING(160), allowNull: true },

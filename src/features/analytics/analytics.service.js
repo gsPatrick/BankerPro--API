@@ -1,6 +1,27 @@
 import { Op, fn, col, literal } from 'sequelize';
 import { AnalyticsVisitor, AnalyticsSession, AnalyticsEvent } from '../../models/index.js';
 import { parseUserAgent } from '../../utils/user-agent.js';
+import { lookupGeo } from '../../utils/geo-ip.js';
+
+/**
+ * Enriquece visitante e sessão com a localização do IP, em segundo plano (não
+ * bloqueia a resposta do beacon). Só roda quando ainda não temos geo.
+ */
+const enrichGeo = (visitorId, sessionId, ip) => {
+  lookupGeo(ip)
+    .then(async (geo) => {
+      if (!geo) return;
+      await AnalyticsVisitor.update(
+        { country: geo.country, countryCode: geo.countryCode, region: geo.region, city: geo.city },
+        { where: { visitorId, country: null } }
+      );
+      await AnalyticsSession.update(
+        { country: geo.country, countryCode: geo.countryCode, region: geo.region, city: geo.city },
+        { where: { sessionId } }
+      );
+    })
+    .catch(() => { /* melhor esforço */ });
+};
 
 const str = (v, max = 255) => (v === null || v === undefined ? null : String(v).slice(0, max));
 const asDate = (v) => {
@@ -122,6 +143,12 @@ export const ingest = async ({ visitorId, sessionId, context = {}, events = [], 
   await visitor.save();
   await session.save();
 
+  // Geo por IP em segundo plano: numa sessão nova ou quando ainda não temos a
+  // localização do visitante. Não await — o beacon fecha na hora.
+  if (ip && (isNewSession || !visitor.country)) {
+    enrichGeo(visitorId, sessionId, ip);
+  }
+
   // ── Eventos ───────────────────────────────────────────────
   // Heartbeats não viram linha: eles só servem para medir duração (já aplicada
   // acima). Guardar todos incharia a tabela sem informação nova.
@@ -166,7 +193,8 @@ export const getOverview = async ({ days = 30 } = {}) => {
     abandonedInRange,
     avgRow,
     deviceRows,
-    sourceRows
+    sourceRows,
+    regionRows
   ] = await Promise.all([
     AnalyticsVisitor.count({ where: { lastSeenAt: { [Op.gte]: since } } }),
     AnalyticsVisitor.count({ where: { firstSeenAt: { [Op.gte]: startOfToday } } }),
@@ -194,6 +222,14 @@ export const getOverview = async ({ days = 30 } = {}) => {
       order: [[literal('count'), 'DESC']],
       limit: 8,
       raw: true
+    }),
+    AnalyticsSession.findAll({
+      where: { startedAt: { [Op.gte]: since }, region: { [Op.ne]: null } },
+      attributes: ['region', 'country', [fn('COUNT', col('id')), 'count']],
+      group: ['region', 'country'],
+      order: [[literal('count'), 'DESC']],
+      limit: 8,
+      raw: true
     })
   ]);
 
@@ -211,7 +247,11 @@ export const getOverview = async ({ days = 30 } = {}) => {
       conversionRate
     },
     byDevice: deviceRows.map((r) => ({ device: r.device_type || 'desconhecido', count: Number(r.count) })),
-    bySource: sourceRows.map((r) => ({ source: r.utm_source || 'direto', count: Number(r.count) }))
+    bySource: sourceRows.map((r) => ({ source: r.utm_source || 'direto', count: Number(r.count) })),
+    byRegion: regionRows.map((r) => ({
+      region: [r.region, r.country].filter(Boolean).join(' · ') || 'desconhecido',
+      count: Number(r.count)
+    }))
   };
 };
 
