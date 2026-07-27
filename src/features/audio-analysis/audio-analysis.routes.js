@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { requireAuth } from '../../middlewares/auth.middleware.js';
 import { requirePermission } from '../../middlewares/permission.middleware.js';
+import { enforceLimit } from '../../middlewares/limit.middleware.js';
 import { audioRateLimit } from '../../middlewares/rate-limit.middleware.js';
 import { MAX_AUDIO_BYTES } from '../../providers/transcription/transcription.provider.js';
 import * as audioAnalysisController from './audio-analysis.controller.js';
@@ -63,7 +64,7 @@ router.use(requirePermission('analise_audio'));
 
 router.route('/')
   .get(audioAnalysisController.getAnalyses)
-  .post(audioRateLimit, uploadAudio, audioAnalysisController.createAnalysis);
+  .post(enforceLimit('analise_audio'), audioRateLimit, uploadAudio, audioAnalysisController.createAnalysis);
 
 router.route('/:id')
   .get(audioAnalysisController.getAnalysis)

@@ -24,6 +24,7 @@ import WhatsappOtp from './WhatsappOtp.js';
 import AnalyticsVisitor from './AnalyticsVisitor.js';
 import AnalyticsSession from './AnalyticsSession.js';
 import AnalyticsEvent from './AnalyticsEvent.js';
+import FeatureUsage from './FeatureUsage.js';
 
 const env = process.env.NODE_ENV || 'development';
 const config = databaseConfig[env];
@@ -57,7 +58,8 @@ const db = {
   WhatsappOtp,
   AnalyticsVisitor,
   AnalyticsSession,
-  AnalyticsEvent
+  AnalyticsEvent,
+  FeatureUsage
 };
 
 // Initialize all models
@@ -101,7 +103,8 @@ export {
   WhatsappOtp,
   AnalyticsVisitor,
   AnalyticsSession,
-  AnalyticsEvent
+  AnalyticsEvent,
+  FeatureUsage
 };
 
 export default db;

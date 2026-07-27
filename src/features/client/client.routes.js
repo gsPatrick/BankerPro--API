@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as clientController from './client.controller.js';
 import { requireAuth } from '../../middlewares/auth.middleware.js';
 import { requirePermission } from '../../middlewares/permission.middleware.js';
+import { enforceLimit } from '../../middlewares/limit.middleware.js';
 
 const router = Router();
 
@@ -12,7 +13,7 @@ router.use(requirePermission('carteira', 'agenda'));
 
 router.route('/')
   .get(clientController.getClients)
-  .post(clientController.createClient);
+  .post(enforceLimit('carteira'), clientController.createClient);
 
 router.route('/:id')
   .put(clientController.updateClient)

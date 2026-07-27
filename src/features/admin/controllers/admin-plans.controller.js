@@ -17,10 +17,10 @@ export const getPlans = catchAsync(async (req, res, next) => {
 });
 
 export const createPlan = catchAsync(async (req, res, next) => {
-  const { key, name, price, limitSimulations } = req.body;
+  const { key, name, price } = req.body;
 
-  if (!key || !name || price === undefined || limitSimulations === undefined) {
-    return next(new AppError('Campos obrigatórios do plano ausentes.', 400, 'BAD_REQUEST'));
+  if (!key || !name || price === undefined) {
+    return next(new AppError('Campos obrigatórios do plano ausentes (key, name, price).', 400, 'BAD_REQUEST'));
   }
 
   const plan = await adminPlansService.createPlan(req.body);

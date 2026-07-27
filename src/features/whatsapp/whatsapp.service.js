@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { Op } from 'sequelize';
 import * as wpProvider from '../../providers/whatsapp/whatsapp.provider.js';
-import { User, Subscription, SystemPrompt, ProductKnowledge, Plan, AudioAnalysis, WhatsappOtp } from '../../models/index.js';
+import { User, Subscription, SystemPrompt, ProductKnowledge, Plan, AudioAnalysis, WhatsappOtp, FeatureUsage } from '../../models/index.js';
 import { invokeLLM } from '../../providers/anthropic/anthropic.provider.js';
 import { getSettingValue } from '../../utils/settings-resolver.js';
 import { saveSetting } from '../admin/services/admin-settings.service.js';
@@ -380,6 +380,31 @@ export const handleIncomingWebhook = async (payload) => {
         `Faça um upgrade no painel para liberar o assistente de vendas aqui no seu WhatsApp. 🚀`;
       await wpProvider.sendMessage(senderNumber, freeMsg);
       return { success: false, reason: 'Plan not authorized' };
+    }
+
+    // 2.1) Limite de uso do Copiloto no WhatsApp por ciclo do plano. Conta o uso
+    // no FeatureUsage (não há tabela própria de mensagem) e barra ao atingir o teto.
+    const limiteWpp = plan?.limits?.whatsapp_copilot;
+    if (limiteWpp !== undefined && limiteWpp !== null && Number(limiteWpp) >= 0) {
+      const teto = Number(limiteWpp);
+      if (teto === 0) {
+        await wpProvider.sendMessage(senderNumber, `Seu plano *${plan.name}* não inclui o Copiloto no WhatsApp.`);
+        return { success: false, reason: 'Feature blocked' };
+      }
+      const janelaDias = Number(plan?.durationDays) > 0 ? Number(plan.durationDays) : 30;
+      const desde = new Date(Date.now() - janelaDias * 24 * 60 * 60 * 1000);
+      const usados = await FeatureUsage.count({
+        where: { userId: user.id, featureKey: 'whatsapp_copilot', created_at: { [Op.gte]: desde } }
+      });
+      if (usados >= teto) {
+        await wpProvider.sendMessage(
+          senderNumber,
+          `⚠️ Você atingiu o limite de *${teto}* respostas do Copiloto no WhatsApp no seu plano *${plan.name}* neste ciclo. Faça um upgrade para continuar. 🚀`
+        );
+        return { success: false, reason: 'Limit reached' };
+      }
+      // Registra o uso (a resposta será enviada logo abaixo).
+      await FeatureUsage.create({ userId: user.id, featureKey: 'whatsapp_copilot' }).catch(() => {});
     }
 
     // 3) Gerar a resposta com o LLM (Anthropic Claude) usando os prompts do Copiloto e a base de conhecimento de produtos

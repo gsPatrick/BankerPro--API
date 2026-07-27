@@ -1,46 +1,100 @@
 import { Op } from 'sequelize';
-import { Subscription, Simulation, Plan } from '../models/index.js';
+import { Simulation, Client, Goal, Note, AudioAnalysis, FeatureUsage } from '../models/index.js';
+import { getPlanByKey } from '../utils/plan-cache.js';
+import { getPlanFeatureLabel } from '../config/constants.js';
 import AppError from '../utils/app-error.js';
 import catchAsync from '../utils/catch-async.js';
 
-export const checkSimulationLimit = catchAsync(async (req, res, next) => {
-  const userId = req.user.id;
+/**
+ * Funcionalidades cujo uso já vira um registro próprio: contamos a tabela real
+ * (mais preciso, sem precisar de log paralelo). As demais funcionalidades
+ * limitáveis (Copiloto, Gerador, WhatsApp) não têm tabela e caem no FeatureUsage.
+ */
+const REAL_TABLE_COUNTERS = {
+  cenarios: { model: Simulation, field: 'createdByUserId' },
+  carteira: { model: Client, field: 'createdByUserId' },
+  metas: { model: Goal, field: 'createdByUserId' },
+  anotacoes: { model: Note, field: 'createdByUserId' },
+  analise_audio: { model: AudioAnalysis, field: 'createdByUserId' }
+};
 
-  // 1) Obter assinatura ativa do usuário
-  const sub = await Subscription.findOne({
-    where: { userId, status: 'active' }
-  });
-
-  const planKey = sub ? sub.plan : 'free';
-  const plan = await Plan.findOne({ where: { key: planKey } });
-
-  // Se o plano tiver limite de -1, significa simulações ilimitadas
-  if (plan && plan.limitSimulations === -1) {
-    return next();
+// Lê o limite da funcionalidade no plano. Mantém compatibilidade: se limits não
+// trouxer 'cenarios', cai no antigo limitSimulations.
+const resolveLimit = (plan, featureKey) => {
+  const fromLimits = plan?.limits?.[featureKey];
+  if (fromLimits !== undefined && fromLimits !== null && fromLimits !== '') {
+    return Number(fromLimits);
   }
+  if (featureKey === 'cenarios' && plan?.limitSimulations !== undefined && plan?.limitSimulations !== null) {
+    return Number(plan.limitSimulations);
+  }
+  return null; // não configurado = ilimitado
+};
 
-  const limit = plan ? plan.limitSimulations : 10;
+/**
+ * Barra a ação quando o uso da funcionalidade atinge o teto do plano no ciclo.
+ *
+ * - Admin nunca é barrado.
+ * - Limite ausente ou negativo (-1) = ilimitado.
+ * - Limite 0 = bloqueado.
+ * - A janela de contagem é o durationDays do plano (mensal ≈ 30).
+ *
+ * Para as funcionalidades sem tabela própria, registra o uso no FeatureUsage
+ * quando a ação termina com sucesso (status < 400), via res 'finish'.
+ */
+export const enforceLimit = (featureKey) =>
+  catchAsync(async (req, res, next) => {
+    if (req.user?.role === 'admin') return next();
 
-  // 2) Validar limite de simulações nos últimos 30 dias
-  const dateLimit = new Date();
-  dateLimit.setDate(dateLimit.getDate() - 30);
+    const subscription = req.user.subscriptions?.[0];
+    const plan = subscription ? await getPlanByKey(subscription.plan) : null;
 
-  const count = await Simulation.count({
-    where: {
-      createdByUserId: userId,
-      created_at: {
-        [Op.gte]: dateLimit
-      }
+    const limit = resolveLimit(plan, featureKey);
+    if (limit === null || Number.isNaN(limit) || limit < 0) return next(); // ilimitado
+
+    const label = getPlanFeatureLabel(featureKey);
+    if (limit === 0) {
+      return next(new AppError(
+        `A funcionalidade "${label}" não está incluída no seu plano.`,
+        403,
+        'LIMIT_EXCEEDED'
+      ));
     }
+
+    const windowDays = Number(plan?.durationDays) > 0 ? Number(plan.durationDays) : 30;
+    const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
+
+    const counter = REAL_TABLE_COUNTERS[featureKey];
+    let count;
+    if (counter) {
+      count = await counter.model.count({
+        where: { [counter.field]: req.user.id, created_at: { [Op.gte]: since } }
+      });
+    } else {
+      count = await FeatureUsage.count({
+        where: { userId: req.user.id, featureKey, created_at: { [Op.gte]: since } }
+      });
+      // Sem tabela própria: registra o uso só se a ação der certo.
+      res.on('finish', () => {
+        if (res.statusCode < 400) {
+          FeatureUsage.create({ userId: req.user.id, featureKey }).catch(() => {});
+        }
+      });
+    }
+
+    if (count >= limit) {
+      return next(new AppError(
+        `Você atingiu o limite de ${limit} de "${label}" no seu plano neste ciclo. Faça um upgrade para continuar.`,
+        403,
+        'LIMIT_EXCEEDED'
+      ));
+    }
+
+    next();
   });
 
-  if (count >= limit) {
-    return next(new AppError(
-      `Você atingiu o limite de ${limit} simulações do plano '${plan ? plan.name : 'Gratuito'}' nos últimos 30 dias. Faça um upgrade para outro plano para continuar!`,
-      403,
-      'LIMIT_EXCEEDED'
-    ));
-  }
-
-  next();
-});
+/**
+ * Mantido por compatibilidade com quem importava checkSimulationLimit; hoje é o
+ * enforceLimit da funcionalidade de cenários.
+ */
+export const checkSimulationLimit = enforceLimit('cenarios');

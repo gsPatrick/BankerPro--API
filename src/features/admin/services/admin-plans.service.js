@@ -29,6 +29,50 @@ const assertValidPermissions = (permissions) => {
   }
 };
 
+// limits é { featureKey: number }. Chaves precisam existir no catálogo e os
+// valores serem inteiros (-1 ilimitado, 0 bloqueado, N teto). Uma key errada
+// aqui viraria um limite que nunca é aplicado.
+const assertValidLimits = (limits) => {
+  if (limits === undefined || limits === null) return;
+  if (typeof limits !== 'object' || Array.isArray(limits)) {
+    throw new AppError('limits deve ser um objeto { funcionalidade: número }.', 400, 'BAD_REQUEST');
+  }
+  for (const [key, value] of Object.entries(limits)) {
+    if (!PlanFeatureKeys.includes(key)) {
+      throw new AppError(`Funcionalidade inexistente em limits: ${key}.`, 400, 'INVALID_PLAN_LIMIT');
+    }
+    if (!Number.isInteger(Number(value))) {
+      throw new AppError(`Limite de "${key}" deve ser um número inteiro.`, 400, 'INVALID_PLAN_LIMIT');
+    }
+  }
+};
+
+const VALID_BILLING = ['monthly', 'yearly', 'custom', 'free'];
+const assertValidBilling = (billingPeriod) => {
+  if (billingPeriod === undefined) return;
+  if (!VALID_BILLING.includes(billingPeriod)) {
+    throw new AppError(`Período inválido. Use: ${VALID_BILLING.join(', ')}.`, 400, 'INVALID_BILLING_PERIOD');
+  }
+};
+
+// Normaliza os campos de cobrança de forma coerente: free zera o preço; a
+// duração padrão segue o período quando não informada.
+const normalizeBilling = (data) => {
+  const out = { ...data };
+  if (out.billingPeriod === 'free' || out.isFree === true) {
+    out.isFree = true;
+    out.billingPeriod = out.billingPeriod === 'free' ? 'free' : out.billingPeriod;
+    out.price = 0;
+  }
+  if (out.durationDays === undefined || out.durationDays === null || Number(out.durationDays) <= 0) {
+    if (out.billingPeriod === 'yearly') out.durationDays = 365;
+    else if (out.billingPeriod === 'monthly') out.durationDays = 30;
+    // custom sem duração fica a cargo da validação abaixo
+  }
+  if (out.durationDays !== undefined) out.durationDays = Math.max(1, Number(out.durationDays) || 30);
+  return out;
+};
+
 export const listPlans = async () => {
   return await Plan.findAll({
     order: [['price', 'ASC']]
@@ -42,8 +86,10 @@ export const createPlan = async (data) => {
   }
 
   assertValidPermissions(data.permissions);
+  assertValidLimits(data.limits);
+  assertValidBilling(data.billingPeriod);
 
-  const plan = await Plan.create(data);
+  const plan = await Plan.create(normalizeBilling(data));
   invalidarPlano(plan.key);
   return plan;
 };
@@ -55,13 +101,29 @@ export const updatePlan = async (id, data) => {
   }
 
   assertValidPermissions(data.permissions);
+  assertValidLimits(data.limits);
+  assertValidBilling(data.billingPeriod);
 
-  const allowedFields = ['name', 'price', 'limitSimulations', 'features', 'permissions'];
-  allowedFields.forEach((field) => {
-    if (data[field] !== undefined) {
-      plan[field] = data[field];
-    }
+  // Campos simples: aplica só os enviados.
+  ['name', 'price', 'limitSimulations', 'features', 'permissions', 'limits'].forEach((field) => {
+    if (data[field] !== undefined) plan[field] = data[field];
   });
+
+  // Cobrança: se o admin mexeu em qualquer campo do ciclo, recalcula o conjunto
+  // (free zera preço, duração segue o período quando não informada).
+  const mexeuCobranca = ['billingPeriod', 'durationDays', 'isFree'].some((f) => data[f] !== undefined);
+  if (mexeuCobranca) {
+    const merged = normalizeBilling({
+      billingPeriod: data.billingPeriod ?? plan.billingPeriod,
+      durationDays: data.durationDays ?? plan.durationDays,
+      isFree: data.isFree ?? plan.isFree,
+      price: data.price ?? plan.price
+    });
+    plan.billingPeriod = merged.billingPeriod;
+    plan.durationDays = merged.durationDays;
+    plan.isFree = merged.isFree;
+    plan.price = merged.price;
+  }
 
   await plan.save();
   invalidarPlano(plan.key);
