@@ -179,6 +179,39 @@ export const ingest = async ({ visitorId, sessionId, context = {}, events = [], 
 
 const rangeStart = (days) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
+/**
+ * Normaliza a origem para exibição: junta apelidos da mesma fonte (ig/instagram,
+ * fb/facebook) e descarta o que não é origem de verdade — IP de referrer e o
+ * próprio domínio (navegação interna) viram "direto".
+ */
+const canonicalSource = (raw) => {
+  const s = String(raw || '').trim().toLowerCase();
+  if (!s) return 'direto';
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(s)) return 'direto';       // IP não é origem
+  if (s.includes('closeria')) return 'direto';                  // self-referral
+  if (['ig', 'insta', 'instagram', 'instagram.com', 'l.instagram.com'].includes(s)) return 'instagram';
+  if (['fb', 'face', 'facebook', 'facebook.com', 'l.facebook.com', 'lm.facebook.com', 'm.facebook.com'].includes(s)) return 'facebook';
+  if (['meta'].includes(s)) return 'meta';
+  if (['wa', 'whatsapp', 'whatsapp.com', 'wa.me'].includes(s)) return 'whatsapp';
+  if (['google', 'adwords', 'google-ads', 'googleads', 'gads', 'google.com'].includes(s)) return 'google';
+  if (['tiktok', 'tt', 'tiktok.com'].includes(s)) return 'tiktok';
+  if (['yt', 'youtube', 'youtube.com', 'youtu.be'].includes(s)) return 'youtube';
+  return s;
+};
+
+// Junta as contagens por origem canônica e devolve as maiores.
+const mergeSources = (rows) => {
+  const map = {};
+  for (const r of rows) {
+    const key = canonicalSource(r.utm_source);
+    map[key] = (map[key] || 0) + Number(r.count);
+  }
+  return Object.entries(map)
+    .map(([source, count]) => ({ source, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+};
+
 export const getOverview = async ({ days = 30 } = {}) => {
   const since = rangeStart(days);
   const startOfToday = new Date();
@@ -221,8 +254,6 @@ export const getOverview = async ({ days = 30 } = {}) => {
       where: { startedAt: { [Op.gte]: since } },
       attributes: ['utm_source', [fn('COUNT', col('id')), 'count']],
       group: ['utm_source'],
-      order: [[literal('count'), 'DESC']],
-      limit: 8,
       raw: true
     }),
     AnalyticsSession.findAll({
@@ -249,7 +280,7 @@ export const getOverview = async ({ days = 30 } = {}) => {
       conversionRate
     },
     byDevice: deviceRows.map((r) => ({ device: r.device_type || 'desconhecido', count: Number(r.count) })),
-    bySource: sourceRows.map((r) => ({ source: r.utm_source || 'direto', count: Number(r.count) })),
+    bySource: mergeSources(sourceRows),
     byRegion: regionRows.map((r) => ({
       region: [r.region, r.country].filter(Boolean).join(' · ') || 'desconhecido',
       count: Number(r.count)
