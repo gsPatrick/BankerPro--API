@@ -28,11 +28,13 @@ export const getFinancialSummary = async (req, res, next) => {
       order: [['created_at', 'DESC']]
     });
 
-    // Só assinaturas pagas entram no resumo FINANCEIRO: trials/planos gratuitos
-    // (preço 0) e órfãos de plano deletado não são receita e só apareciam como
-    // "pessoas com R$ 0" poluindo a tela.
-    const paidSubscriptions = subscriptions.filter(
-      (sub) => parseFloat(sub.planDetails?.price ?? 0) > 0
+    // Só entra no resumo FINANCEIRO quem PAGOU de verdade — passou pelo Mercado
+    // Pago (cartão ou PIX confirmado). Ativações manuais/cortesia (paymentMethod
+    // nulo, mpSubscriptionId = MANUAL_BY_ADMIN) e planos gratuitos/trial
+    // (paymentMethod 'free') não são receita e ficam de fora.
+    const PAID_METHODS = ['credit_card', 'pix'];
+    const paidSubscriptions = subscriptions.filter((sub) =>
+      PAID_METHODS.includes(String(sub.paymentMethod || '').toLowerCase())
     );
 
     // 2. Calculate summary statistics
