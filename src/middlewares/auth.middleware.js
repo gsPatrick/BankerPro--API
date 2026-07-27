@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { Op } from 'sequelize';
 import { User, UserProfile, Subscription } from '../models/index.js';
 import AppError from '../utils/app-error.js';
 import catchAsync from '../utils/catch-async.js';
@@ -22,10 +23,11 @@ export const requireAuth = catchAsync(async (req, res, next) => {
   const currentUser = await User.findByPk(decoded.id, {
     include: [
       { model: UserProfile, as: 'profile' },
-      { 
-        model: Subscription, 
+      {
+        model: Subscription,
         as: 'subscriptions',
-        where: { status: 'active' },
+        // Vencida não conta: um trial expirado deixa de liberar as telas.
+        where: { status: 'active', [Op.or]: [{ endsAt: null }, { endsAt: { [Op.gt]: new Date() } }] },
         required: false
       }
     ]

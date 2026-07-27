@@ -47,7 +47,10 @@ const assertValidLimits = (limits) => {
   }
 };
 
-const VALID_BILLING = ['monthly', 'yearly', 'custom', 'free'];
+// Período é só a periodicidade da cobrança. "Gratuito" NÃO é período: é a flag
+// isFree, que qualquer período pode ter (ex.: personalizado de 7 dias grátis =
+// trial que expira e obriga a assinar depois).
+const VALID_BILLING = ['monthly', 'yearly', 'custom'];
 const assertValidBilling = (billingPeriod) => {
   if (billingPeriod === undefined) return;
   if (!VALID_BILLING.includes(billingPeriod)) {
@@ -55,19 +58,17 @@ const assertValidBilling = (billingPeriod) => {
   }
 };
 
-// Normaliza os campos de cobrança de forma coerente: free zera o preço; a
-// duração padrão segue o período quando não informada.
+// Normaliza a cobrança: isFree zera o preço; a duração padrão segue o período
+// (mensal 30, anual 365) quando não informada.
 const normalizeBilling = (data) => {
   const out = { ...data };
-  if (out.billingPeriod === 'free' || out.isFree === true) {
-    out.isFree = true;
-    out.billingPeriod = out.billingPeriod === 'free' ? 'free' : out.billingPeriod;
+  if (out.isFree === true) {
     out.price = 0;
   }
   if (out.durationDays === undefined || out.durationDays === null || Number(out.durationDays) <= 0) {
     if (out.billingPeriod === 'yearly') out.durationDays = 365;
     else if (out.billingPeriod === 'monthly') out.durationDays = 30;
-    // custom sem duração fica a cargo da validação abaixo
+    // custom sem duração fica a cargo da validação da rota
   }
   if (out.durationDays !== undefined) out.durationDays = Math.max(1, Number(out.durationDays) || 30);
   return out;

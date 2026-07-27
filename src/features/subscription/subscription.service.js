@@ -26,7 +26,13 @@ export const listPlans = async () =>
 
 export const getSubscriptionByUserId = async (userId) => {
   const sub = await Subscription.findOne({
-    where: { userId, status: 'active' },
+    // Vencida (endsAt no passado) não conta como ativa: é assim que o trial que
+    // acabou some, e o gate de plano manda a pessoa para o checkout.
+    where: {
+      userId,
+      status: 'active',
+      [Op.or]: [{ endsAt: null }, { endsAt: { [Op.gt]: new Date() } }]
+    },
     order: [['created_at', 'DESC']]
   });
 
@@ -78,13 +84,23 @@ export const activateFreePlan = async (userId, planType = 'free') => {
     { where: { userId, status: 'active' } }
   );
 
+  // Plano gratuito com prazo (ex.: trial de 7 dias): expira em durationDays e,
+  // depois disso, a pessoa é obrigada a assinar um plano pago. Sem prazo válido,
+  // fica sem expiração (grátis contínuo).
+  const startsAt = new Date();
+  let endsAt = null;
+  const dias = Number(plan.durationDays);
+  if (Number.isFinite(dias) && dias > 0) {
+    endsAt = new Date(startsAt.getTime() + dias * 24 * 60 * 60 * 1000);
+  }
+
   const subscription = await Subscription.create({
     userId,
     plan: planType,
     status: 'active',
     paymentMethod: 'free',
-    startsAt: new Date(),
-    endsAt: null
+    startsAt,
+    endsAt
   });
 
   return subscription;

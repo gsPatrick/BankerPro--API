@@ -4,8 +4,8 @@ export const plansData = [
     key: 'admin_unlimited',
     name: 'Administrador - Interno',
     price: 0.00,
-    billingPeriod: 'free',
-    durationDays: 365,
+    billingPeriod: 'yearly',
+    durationDays: 3650,
     isFree: true,
     limitSimulations: -1, // Ilimitado
     limits: {},
