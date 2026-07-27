@@ -90,7 +90,9 @@ export const createPlan = async (data) => {
   assertValidLimits(data.limits);
   assertValidBilling(data.billingPeriod);
 
-  const plan = await Plan.create(normalizeBilling(data));
+  const clean = normalizeBilling(data);
+  if (clean.trialDays !== undefined) clean.trialDays = Math.max(0, Number(clean.trialDays) || 0);
+  const plan = await Plan.create(clean);
   invalidarPlano(plan.key);
   return plan;
 };
@@ -106,8 +108,8 @@ export const updatePlan = async (id, data) => {
   assertValidBilling(data.billingPeriod);
 
   // Campos simples: aplica só os enviados.
-  ['name', 'price', 'limitSimulations', 'features', 'permissions', 'limits'].forEach((field) => {
-    if (data[field] !== undefined) plan[field] = data[field];
+  ['name', 'price', 'limitSimulations', 'features', 'permissions', 'limits', 'trialDays'].forEach((field) => {
+    if (data[field] !== undefined) plan[field] = field === 'trialDays' ? Math.max(0, Number(data[field]) || 0) : data[field];
   });
 
   // Cobrança: se o admin mexeu em qualquer campo do ciclo, recalcula o conjunto

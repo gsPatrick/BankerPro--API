@@ -42,6 +42,14 @@ export default class Plan extends Model {
         allowNull: false,
         defaultValue: false
       },
+      // Período de teste grátis de um plano PAGO (modelo Netflix): N dias de
+      // acesso grátis e, quando acaba, a pessoa tem que assinar (pagar). 0 = sem
+      // teste. Diferente de isFree, que é o plano 100% gratuito.
+      trialDays: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+      },
       limitSimulations: {
         type: DataTypes.INTEGER,
         allowNull: false,

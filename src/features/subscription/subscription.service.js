@@ -106,6 +106,44 @@ export const activateFreePlan = async (userId, planType = 'free') => {
   return subscription;
 };
 
+/**
+ * Inicia o período de teste grátis de um plano PAGO. Sem cobrança agora: cria a
+ * assinatura ativa que expira em plan.trialDays e, ao acabar, some (a pessoa é
+ * mandada ao checkout para pagar). Um teste por usuário, para evitar abuso.
+ */
+export const startTrial = async (userId, plan) => {
+  const trialDays = Number(plan.trialDays);
+  if (!Number.isFinite(trialDays) || trialDays <= 0) {
+    throw new AppError('Este plano não oferece período de teste.', 400, 'NO_TRIAL');
+  }
+
+  const jaTeveTrial = await Subscription.findOne({
+    where: { userId, paymentMethod: 'trial' }
+  });
+  if (jaTeveTrial) {
+    throw new AppError('Você já utilizou um período de teste grátis. Assine o plano para continuar.', 400, 'TRIAL_ALREADY_USED');
+  }
+
+  await Subscription.update(
+    { status: 'cancelled' },
+    { where: { userId, status: 'active' } }
+  );
+
+  const startsAt = new Date();
+  const endsAt = new Date(startsAt.getTime() + trialDays * 24 * 60 * 60 * 1000);
+
+  const subscription = await Subscription.create({
+    userId,
+    plan: plan.key,
+    status: 'active',
+    paymentMethod: 'trial',
+    startsAt,
+    endsAt
+  });
+
+  return { trial: true, planSelected: true, activated: true, endsAt, subscription };
+};
+
 export const checkoutSubscription = async (userId, planType, paymentMethod = null, cardToken = null, docNumber = null, docType = 'CPF') => {
   if (isInternalPlanKey(planType)) {
     throw new AppError('Plano indisponível para contratação.', 403, 'PLAN_NOT_AVAILABLE');
@@ -114,6 +152,11 @@ export const checkoutSubscription = async (userId, planType, paymentMethod = nul
   const plan = await Plan.findOne({ where: { key: planType } });
   if (!plan) {
     throw new AppError('Plano inválido para checkout.', 404, 'PLAN_NOT_FOUND');
+  }
+
+  // Início de teste grátis de um plano pago (Netflix): sem cobrança agora.
+  if (paymentMethod === 'trial') {
+    return startTrial(userId, plan);
   }
 
   if (parseFloat(plan.price) <= 0 || planType === 'free' || paymentMethod === 'free') {
