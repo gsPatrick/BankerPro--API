@@ -35,9 +35,23 @@ export function parseUserAgent(userAgent = '') {
 }
 
 export function getClientIp(req) {
+  // req.ip primeiro. Com 'trust proxy' configurado no app, o Express já resolve
+  // o IP real contando os hops confiáveis de trás para frente.
+  //
+  // Ler o X-Forwarded-For direto (pegando o primeiro item) era o mesmo que
+  // aceitar o IP que o cliente quisesse: basta mandar o header na requisição que
+  // o proxy acrescenta o IP verdadeiro DEPOIS, e o primeiro item continua sendo
+  // o forjado. Isso ia parar no registro de sessões e no analytics — o painel
+  // mostrava a origem que o visitante escolhesse.
+  if (req.ip) return req.ip;
+
   const forwarded = req.headers['x-forwarded-for'];
   if (typeof forwarded === 'string' && forwarded.length) {
-    return forwarded.split(',')[0].trim();
+    // Sem trust proxy configurado, o hop confiável é o ÚLTIMO da lista: os
+    // anteriores podem ter vindo do cliente.
+    const partes = forwarded.split(',').map((p) => p.trim()).filter(Boolean);
+    if (partes.length) return partes[partes.length - 1];
   }
-  return req.ip || req.socket?.remoteAddress || null;
+
+  return req.socket?.remoteAddress || null;
 }

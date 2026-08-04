@@ -66,12 +66,17 @@ export const updateSimulation = async (userId, id, data) => {
   // Se já estiver completada, não re-completar
   const wasAlreadyCompleted = simulation.status === 'completed';
 
-  // As notas e o feedback NÃO entram nesta lista de propósito: quem grava é o
-  // /ai/simulation/evaluate, no servidor. Enquanto vinham daqui, bastava editar
-  // a requisição do navegador e mandar scoreTotal alto para inflar XP, média,
-  // recorde e a posição no ranking — o front continua enviando esses campos, e
-  // eles são simplesmente ignorados.
-  const fields = ['status', 'messages', 'durationMinutes'];
+  // Nem as notas nem as MENSAGENS entram nesta lista.
+  //
+  // As notas porque quem grava é o /ai/simulation/evaluate, no servidor. E as
+  // mensagens porque a avaliação lê exatamente esse campo: enquanto ele era
+  // gravável pelo cliente, tirar os scores daqui não resolvia nada — bastava
+  // substituir a conversa inteira por um diálogo perfeito, chamar o evaluate e
+  // receber nota máxima, XP e o topo do ranking. A conversa verdadeira é
+  // acumulada pelo /ai/simulation/chat a cada mensagem trocada.
+  //
+  // O front continua enviando esses campos no PUT de conclusão; são ignorados.
+  const fields = ['status', 'durationMinutes'];
 
   fields.forEach((field) => {
     if (data[field] !== undefined) {
