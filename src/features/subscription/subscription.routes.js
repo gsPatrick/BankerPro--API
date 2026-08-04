@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import * as subscriptionController from './subscription.controller.js';
 import { requireAuth } from '../../middlewares/auth.middleware.js';
+import { webhookRateLimit } from '../../middlewares/rate-limit.middleware.js';
 
 const router = Router();
 
 // Rotas públicas
-router.post('/webhook', subscriptionController.webhook);
+router.post('/webhook', webhookRateLimit, subscriptionController.webhook);
 router.get('/plans', subscriptionController.getPlans);
 router.get('/checkout-config', subscriptionController.getCheckoutConfig);
 

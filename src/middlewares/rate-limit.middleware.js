@@ -122,6 +122,24 @@ export const publicCollectRateLimit = rateLimit({
   handler: (req, res) => res.status(204).end()
 });
 
+/**
+ * Webhooks públicos (Mercado Pago e Z-API). São as únicas rotas abertas que
+ * disparam trabalho caro: a do pagamento faz uma consulta de volta ao Mercado
+ * Pago a cada chamada, e a do WhatsApp encosta no banco antes de descartar o que
+ * não reconhece. Sem teto, quem descobrir a URL mantém a API ocupada de graça —
+ * e ainda pode fazer o Mercado Pago nos limitar por excesso de consultas.
+ *
+ * O teto é alto de propósito: o volume real desses provedores fica muito abaixo.
+ */
+export const webhookRateLimit = rateLimit({
+  windowMs: 60_000,
+  limit: parseInt(process.env.RATE_LIMIT_WEBHOOK || '300', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
+  message: { success: false, error: { message: 'Too many requests.', code: 'RATE_LIMITED' } }
+});
+
 // Análise de áudio: cada uma custa transcrição + análise, então o teto é menor.
 export const audioRateLimit = rateLimit({
   windowMs: 60_000,
