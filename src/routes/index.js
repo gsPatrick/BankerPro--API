@@ -34,8 +34,10 @@ router.use('/auth', authRoutes);
 router.get('/users', requireAuth, requireRole('admin'), authController.getUsersList);
 router.get('/user', requireAuth, requireRole('admin'), authController.getUsersList);
 
-router.post('/integrations/core/invoke-llm', requireAuth, aiRateLimit, aiController.invokeLLM);
-router.post('/integrations/core/invoke_llm', requireAuth, aiRateLimit, aiController.invokeLLM);
+// Aliases herdados do Base44 para o prompt livre. Mesma regra da rota /ai/invoke-llm:
+// só admin, senão viram LLM ilimitada e gratuita paga pela conta da Anthropic.
+router.post('/integrations/core/invoke-llm', requireAuth, requireRole('admin'), aiRateLimit, aiController.invokeLLM);
+router.post('/integrations/core/invoke_llm', requireAuth, requireRole('admin'), aiRateLimit, aiController.invokeLLM);
 
 router.use('/profile', userProfileRoutes);
 router.use('/profiles', userProfileRoutes);

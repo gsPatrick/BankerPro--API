@@ -23,6 +23,13 @@ export const registerUser = async ({ email, password, acceptedTerms, fullName, w
     throw new AppError('Você precisa concordar com os Termos de Uso e Políticas de Privacidade (LGPD).', 400, 'TERMS_NOT_ACCEPTED');
   }
 
+  // 0.5) Exigência mínima de senha. O cadastro não tinha nenhuma — dava para
+  // criar conta com senha de 1 caractere, que cai em qualquer teste de força
+  // bruta. O reset de senha já cobrava um mínimo; agora as duas portas cobram.
+  if (!password || String(password).length < 8) {
+    throw new AppError('A senha deve ter no mínimo 8 caracteres.', 400, 'WEAK_PASSWORD');
+  }
+
   // 1) Verificar se o e-mail já existe
   const existingUser = await User.findOne({ where: { email } });
   if (existingUser) {

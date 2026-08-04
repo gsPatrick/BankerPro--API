@@ -17,6 +17,11 @@ router.post('/simulation/extract-learning', requirePermission('cenarios'), aiCon
 router.post('/copiloto/analyze', requirePermission('copiloto'), enforceLimit('copiloto'), aiController.copilotoAnalyze);
 router.post('/approach/generate', requirePermission('gerador'), enforceLimit('gerador'), aiController.approachGenerate);
 router.post('/knowledge/polish', requireRole('admin'), aiController.knowledgePolish);
-router.post('/invoke-llm', aiController.invokeLLM);
+
+// Prompt livre direto no Claude. Estava aberto a qualquer conta autenticada, sem
+// exigir plano: um cadastro grátis usava a plataforma como LLM ilimitada e a
+// conta da Anthropic pagava. As telas do produto não chamam esta rota — elas têm
+// endpoints próprios acima —, então ela fica restrita ao admin.
+router.post('/invoke-llm', requireRole('admin'), aiController.invokeLLM);
 
 export default router;

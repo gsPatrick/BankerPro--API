@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'fs';
 import path from 'path';
 import { Op } from 'sequelize';
@@ -183,7 +184,10 @@ const enviarOtpVinculo = async (cleanSender) => {
   // Não há código válido: limpa qualquer um expirado e gera um novo.
   await WhatsappOtp.destroy({ where: { whatsapp: cleanSender } });
 
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  // Gerador criptográfico: com Math.random() os códigos são previsíveis a partir
+  // de alguns já observados, e este código vincula um número de WhatsApp a uma
+  // conta.
+  const code = String(crypto.randomInt(100000, 1000000));
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
   await WhatsappOtp.create({ whatsapp: cleanSender, code, expiresAt });
 

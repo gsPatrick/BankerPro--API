@@ -25,11 +25,15 @@ const storage = multer.diskStorage({
 
 // File filter to allow only image files
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|webp|gif/;
+  // Âncoras no regex: sem elas, "test" só verificava se a string CONTÉM o
+  // formato, então ".gifx" ou ".pngx" passavam e o arquivo era salvo com uma
+  // extensão arbitrária dentro da pasta servida como estático.
+  const extPermitida = /^\.(jpe?g|png|webp|gif)$/;
+  const mimePermitido = /^image\/(jpeg|jpg|png|webp|gif)$/;
   const ext = path.extname(file.originalname).toLowerCase();
-  const mime = file.mimetype;
-  
-  if (allowedTypes.test(ext) && allowedTypes.test(mime)) {
+  const mime = String(file.mimetype).toLowerCase();
+
+  if (extPermitida.test(ext) && mimePermitido.test(mime)) {
     cb(null, true);
   } else {
     cb(new Error('Apenas imagens são permitidas (jpeg, jpg, png, webp, gif).'));

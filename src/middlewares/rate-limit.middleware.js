@@ -86,6 +86,42 @@ export const otpRequestRateLimit = rateLimit({
   }
 });
 
+/**
+ * Confirmação do código de vínculo do WhatsApp. O código tem 6 dígitos e vale
+ * para QUALQUER número com código ativo (não dá para escopar por usuário: o
+ * vínculo é justamente o que descobre de quem é o número). Sem teto, um script
+ * chuta códigos até acertar o de outra pessoa e rouba o número dela.
+ */
+export const linkCodeRateLimit = rateLimit({
+  windowMs: 60_000,
+  limit: parseInt(process.env.RATE_LIMIT_LINK_CODE || '5', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: chavePorUsuario,
+  message: {
+    success: false,
+    error: {
+      message: 'Muitas tentativas de código. Aguarde um minuto e tente novamente.',
+      code: 'RATE_LIMITED'
+    }
+  }
+});
+
+/**
+ * Coleta pública de analytics: sem autenticação, grava no banco. O teto por IP
+ * evita que alguém encha as tabelas com lixo (e a fatura de disco junto).
+ * Generoso o bastante para uma navegação real, que manda eventos em lote.
+ */
+export const publicCollectRateLimit = rateLimit({
+  windowMs: 60_000,
+  limit: parseInt(process.env.RATE_LIMIT_COLLECT || '60', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
+  // O beacon não lê a resposta; devolver 204 mantém o console do visitante limpo.
+  handler: (req, res) => res.status(204).end()
+});
+
 // Análise de áudio: cada uma custa transcrição + análise, então o teto é menor.
 export const audioRateLimit = rateLimit({
   windowMs: 60_000,
