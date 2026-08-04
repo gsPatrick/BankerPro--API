@@ -179,14 +179,15 @@ export const verifyUserOtp = async ({ email, otpCode }) => {
 };
 
 export const resendUserOtp = async (email) => {
-  // 1) Encontrar usuário
-  const user = await User.findOne({ where: { email } });
-  if (!user) {
-    throw new AppError('Usuário não encontrado.', 404, 'USER_NOT_FOUND');
-  }
+  // Resposta igual para e-mail sem conta e para e-mail já verificado: antes, a
+  // diferença entre "usuário não encontrado" e "já verificado" permitia varrer
+  // uma lista de e-mails e descobrir quais têm conta aqui — o mesmo cuidado que
+  // o "esqueci minha senha" já tomava.
+  const respostaGenerica = { message: 'Se este e-mail precisar de verificação, enviaremos um novo código.' };
 
-  if (user.emailVerified) {
-    throw new AppError('Este e-mail já está verificado.', 400, 'EMAIL_ALREADY_VERIFIED');
+  const user = await User.findOne({ where: { email } });
+  if (!user || user.emailVerified) {
+    return respostaGenerica;
   }
 
   // 2) Inutilizar OTPs anteriores
@@ -203,11 +204,16 @@ export const resendUserOtp = async (email) => {
     used: false
   });
 
-  console.log(`\n=================================================`);
-  console.log(`📧 [DEV OTP RESEND] Novo código para ${email}: ${otpCode}`);
-  console.log(`=================================================\n`);
+  // O código NÃO vai para o log fora de desenvolvimento. Quem tiver acesso aos
+  // logs do deploy (painel, agregador, um print em suporte) tomaria qualquer
+  // conta: pede o reenvio, lê o código no log e confirma.
+  if (process.env.NODE_ENV !== 'production' && process.env.LOG_OTP === 'true') {
+    console.log(`📧 [DEV] Novo código para ${email}: ${otpCode}`);
+  } else {
+    console.log(`📧 Código de verificação reenviado para ${email}.`);
+  }
 
-  return { message: 'OTP reenviado com sucesso.' };
+  return respostaGenerica;
 };
 
 export const loginUser = async ({ email, password }) => {

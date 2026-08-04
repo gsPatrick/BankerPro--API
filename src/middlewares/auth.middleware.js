@@ -18,7 +18,11 @@ export const requireAuth = catchAsync(async (req, res, next) => {
   }
 
   // 2) Validar token
-  const decoded = jwt.verify(token, JWT_SECRET);
+  // Algoritmo fixado: sem isto, a validação aceita qualquer algoritmo que a
+  // biblioteca suporte para um segredo simétrico. Declarar o esperado fecha a
+  // classe de ataque de "confusão de algoritmo", em que o token diz como quer
+  // ser verificado.
+  const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 
   // 3) Verificar se o usuário ainda existe
   const currentUser = await User.findByPk(decoded.id, {

@@ -1,5 +1,6 @@
 import AppError from '../../utils/app-error.js';
 import { getSettingValue } from '../../utils/settings-resolver.js';
+import { fetchExterno } from '../../utils/safe-fetch.js';
 
 /**
  * Provider de WhatsApp — Z-API (https://developer.z-api.io).
@@ -311,7 +312,10 @@ export const downloadMedia = async (media) => {
     throw new AppError('Não foi possível localizar o áudio enviado no WhatsApp.', 502, 'WHATSAPP_MEDIA_URL_MISSING');
   }
 
-  const response = await fetch(mediaUrl);
+  // A URL chega no payload do webhook, ou seja, de fora. Sem a checagem, quem
+  // conseguisse forjar um webhook fazia a API buscar um endereço da rede interna
+  // (banco, Redis, painel, metadados da cloud) e a resposta voltava por aqui.
+  const response = await fetchExterno(mediaUrl);
 
   if (!response.ok) {
     const detalhe = await response.text().catch(() => '');
