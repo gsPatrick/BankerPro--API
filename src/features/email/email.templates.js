@@ -41,10 +41,30 @@ const ASSET_BASE_DEFAULT =
   (process.env.APP_PUBLIC_URL || 'https://bankerpro-bankerpro--api.wohb2u.easypanel.host')
     .replace(/\/+$/, '') + '/assets/email';
 
+/**
+ * Escapa o que vai para dentro do HTML do e-mail.
+ *
+ * O nome é escolhido pelo próprio usuário e caía cru no template. Como o
+ * cadastro não prova a posse do e-mail (a conta já nasce verificada) e dispara
+ * as boas-vindas, dava para se cadastrar com o e-mail de outra pessoa e um
+ * "nome" contendo HTML — a vítima recebia, de um domínio legítimo
+ * (@closeria.com.br), uma mensagem com conteúdo escolhido pelo atacante,
+ * inclusive link falso. Escapar corta isso na raiz.
+ */
+const escaparHtml = (valor) =>
+  String(valor)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 const primeiroNome = (nome) => {
   const n = (nome || '').trim();
   if (!n) return null;
-  return n.split(/\s+/)[0];
+  // Só a primeira palavra, com teto de tamanho: um "nome" gigante deformaria o
+  // layout do e-mail mesmo já escapado.
+  return escaparHtml(n.split(/\s+/)[0].slice(0, 40));
 };
 
 /**

@@ -41,7 +41,7 @@ export const upsertSessionFromRequest = async (userId, { userAgent, ipAddress, m
     return existing;
   }
 
-  return UserDeviceSession.create({
+  const criada = await UserDeviceSession.create({
     userId,
     deviceLabel: parsed.deviceLabel,
     browser: parsed.browser,
@@ -52,6 +52,29 @@ export const upsertSessionFromRequest = async (userId, { userAgent, ipAddress, m
     lastSeenAt: new Date(),
     isCurrent: markCurrent
   });
+
+  // A linha é criada por combinação de User-Agent, que quem chama a API escolhe:
+  // variando o header a cada requisição, uma única conta gerava linhas sem fim
+  // nesta tabela (e uma lista de dispositivos inútil na tela). Mantém as mais
+  // recentes e descarta o excedente.
+  await removerSessoesExcedentes(userId);
+
+  return criada;
+};
+
+const MAXIMO_SESSOES = 20;
+
+const removerSessoesExcedentes = async (userId) => {
+  const antigas = await UserDeviceSession.findAll({
+    where: { userId },
+    order: [['last_seen_at', 'DESC']],
+    offset: MAXIMO_SESSOES,
+    limit: 100,
+    attributes: ['id']
+  });
+
+  if (antigas.length === 0) return;
+  await UserDeviceSession.destroy({ where: { id: antigas.map((s) => s.id) } });
 };
 
 export const revokeSession = async (userId, sessionId) => {

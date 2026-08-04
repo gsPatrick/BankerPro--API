@@ -56,7 +56,10 @@ export const disconnectInstance = async () => {
 // decide se ele pode usar a funcionalidade pedida.
 const resolverUsuarioPorNumero = async (cleanSender) => {
   const user = await User.findOne({
-    where: { whatsapp: cleanSender },
+    // Verificado por OTP, sempre. Um número apenas digitado no perfil não
+    // identifica ninguém — é o que impede que alguém aponte o Copiloto de um
+    // número alheio para a própria conta.
+    where: { whatsapp: cleanSender, whatsappVerified: true },
     include: [{ model: Subscription, as: 'subscriptions', where: { status: 'active' }, required: false }]
   });
 
@@ -353,9 +356,10 @@ export const handleIncomingWebhook = async (payload) => {
 
     console.log(`📩 Mensagem recebida no WhatsApp do Copiloto de ${cleanSender}: "${incomingText}"`);
 
-    // 1) Localizar o usuário pelo número de WhatsApp cadastrado no banco
-    const user = await User.findOne({ 
-      where: { whatsapp: cleanSender },
+    // 1) Localizar o usuário pelo número VERIFICADO por OTP. Casar só pelo
+    // número cadastrado permitiria atender a conta errada.
+    const user = await User.findOne({
+      where: { whatsapp: cleanSender, whatsappVerified: true },
       include: [{ 
         model: Subscription, 
         as: 'subscriptions',

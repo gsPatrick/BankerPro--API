@@ -78,7 +78,19 @@ const updateWhatsapp = async (User, userId, whatsapp, Op) => {
     }
   }
 
-  await User.update({ whatsapp: cleanWhatsapp }, { where: { id: userId } });
+  // Trocar o número derruba a verificação. Sem isto, quem já tinha confirmado um
+  // número pelo OTP editava o perfil, colocava o número de OUTRA pessoa e herdava
+  // o selo de verificado nele — e aí as mensagens e os áudios que a vítima
+  // mandasse ao Copiloto seriam processados e gravados na conta do atacante, que
+  // ainda bloqueava a vítima de vincular o próprio número (o número é único).
+  // Só o fluxo de OTP, que prova posse do aparelho, pode marcar como verificado.
+  const atual = await User.findByPk(userId, { attributes: ['id', 'whatsapp'] });
+  const numeroMudou = (atual?.whatsapp || null) !== cleanWhatsapp;
+
+  await User.update(
+    numeroMudou ? { whatsapp: cleanWhatsapp, whatsappVerified: false } : { whatsapp: cleanWhatsapp },
+    { where: { id: userId } }
+  );
 };
 
 export const updateProfile = async (userId, data) => {
@@ -103,6 +115,11 @@ export const updateProfile = async (userId, data) => {
     const fullName = String(data.fullName || '').trim();
     if (!fullName) {
       throw new AppError('O nome é obrigatório.', 400, 'BAD_REQUEST');
+    }
+    // Teto de tamanho: o nome aparece em e-mail, ranking e painel. Sem limite,
+    // um texto de milhares de caracteres vira poluição em todas essas telas.
+    if (fullName.length > 120) {
+      throw new AppError('O nome deve ter no máximo 120 caracteres.', 400, 'BAD_REQUEST');
     }
     await User.update({ fullName }, { where: { id: userId } });
   }
