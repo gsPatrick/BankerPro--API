@@ -190,10 +190,21 @@ async function bootDatabase() {
     await sequelize.authenticate();
     console.log('✅ Conexão com o PostgreSQL estabelecida.');
 
-    // Sincronizar modelos (cria ou altera tabelas se necessário, nunca destrói dados existentes)
-    console.log('🔄 Sincronizando modelos com o banco de dados...');
-    await sequelize.sync({ alter: true });
-    console.log('✅ Modelos sincronizados.');
+    // Sincronizar modelos (cria ou altera tabelas conforme os models).
+    // O `alter: true` reescreve a estrutura a cada boot a partir do código: é
+    // prático enquanto o schema muda toda semana, mas num banco com dados reais
+    // um model editado por engano altera a tabela sozinho, sem revisão. Fica
+    // controlável por ambiente — ligado por padrão para não mudar o
+    // comportamento atual do deploy, e desligável (DB_AUTO_SYNC=false) quando
+    // vocês passarem a usar migrações.
+    const autoSync = String(process.env.DB_AUTO_SYNC ?? 'true').toLowerCase() !== 'false';
+    if (autoSync) {
+      console.log('🔄 Sincronizando modelos com o banco de dados...');
+      await sequelize.sync({ alter: true });
+      console.log('✅ Modelos sincronizados.');
+    } else {
+      console.log('⏭️  DB_AUTO_SYNC=false — estrutura do banco não é alterada no boot.');
+    }
 
     // Garantir sincronização automática e atualizada dos planos
     console.log('🌱 Sincronizando planos...');

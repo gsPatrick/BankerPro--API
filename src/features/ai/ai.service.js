@@ -5,6 +5,13 @@ import { sanitizeText, sanitizeObject } from '../../utils/client-sanitizer.js';
 import { detectProductsOffered } from '../../utils/cross-sell-detector.js';
 import AppError from '../../utils/app-error.js';
 
+// A IA devolve as notas em JSON; qualquer coisa que não seja número vira nulo
+// para não gravar texto num campo de nota.
+const numeroOuNulo = (valor) => {
+  const n = Number(valor);
+  return Number.isFinite(n) ? n : null;
+};
+
 export const simulationChat = async (userId, { simulationId, userMessage }) => {
   const simulation = await Simulation.findOne({
     where: { id: simulationId, createdByUserId: userId },
@@ -140,6 +147,30 @@ export const simulationEvaluate = async (userId, { simulationId, durationMinutes
   });
 
   const evaluationResult = anthropicProvider.parseJSONResponse(reply);
+
+  // A nota é gravada aqui, no servidor, e não pelo PUT que o navegador manda em
+  // seguida. Antes o cliente devolvia os scores junto com "status: completed" —
+  // e como o XP e o ranking saem do scoreTotal, bastava editar a requisição para
+  // se colocar em primeiro lugar. Agora o que vale é o que a IA atribuiu aqui.
+  const notas = {
+    scoreDiagnostico: numeroOuNulo(evaluationResult?.scoreDiagnostico ?? evaluationResult?.score_diagnostico),
+    scoreArgumentacao: numeroOuNulo(evaluationResult?.scoreArgumentacao ?? evaluationResult?.score_argumentacao),
+    scoreObjeccoes: numeroOuNulo(evaluationResult?.scoreObjeccoes ?? evaluationResult?.score_objeccoes),
+    scoreCrossSell: numeroOuNulo(evaluationResult?.scoreCrossSell ?? evaluationResult?.score_cross_sell),
+    scoreFechamento: numeroOuNulo(evaluationResult?.scoreFechamento ?? evaluationResult?.score_fechamento),
+    scoreTotal: numeroOuNulo(evaluationResult?.scoreTotal ?? evaluationResult?.score_total),
+    pontosFortes: evaluationResult?.pontosFortes ?? evaluationResult?.pontos_fortes ?? null,
+    oportunidadesMelhoria: evaluationResult?.oportunidadesMelhoria ?? evaluationResult?.oportunidades_melhoria ?? null,
+    argumentosSugeridos: evaluationResult?.argumentosSugeridos ?? evaluationResult?.argumentos_sugeridos ?? null,
+    feedback: evaluationResult?.feedback ?? null
+  };
+
+  Object.entries(notas).forEach(([campo, valor]) => {
+    if (valor !== null && valor !== undefined) simulation[campo] = valor;
+  });
+  if (durationMinutes) simulation.durationMinutes = durationMinutes;
+  await simulation.save();
+
   return evaluationResult;
 };
 

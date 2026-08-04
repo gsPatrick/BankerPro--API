@@ -1,6 +1,7 @@
 import { UserDeviceSession } from '../../models/index.js';
 import AppError from '../../utils/app-error.js';
 import { parseUserAgent } from '../../utils/user-agent.js';
+import { rotateSessionsAndIssueToken } from '../auth/auth.service.js';
 
 export const listSessions = async (userId) => {
   const rows = await UserDeviceSession.findAll({
@@ -62,7 +63,15 @@ export const revokeSession = async (userId, sessionId) => {
     throw new AppError('Não é possível encerrar a sessão atual por aqui.', 400, 'CURRENT_SESSION');
   }
   await session.destroy();
-  return { success: true };
+
+  // Apagar a linha da lista não tirava ninguém do ar: o token do outro aparelho
+  // continuava sendo aceito, então "encerrar sessão" era só visual. Invalidar as
+  // sessões é o que realmente derruba o aparelho perdido/roubado; o aparelho
+  // atual recebe um token novo e segue logado.
+  const accessToken = await rotateSessionsAndIssueToken(userId);
+  await UserDeviceSession.destroy({ where: { userId, isCurrent: false } });
+
+  return { success: true, accessToken };
 };
 
 export const revokeOtherSessions = async (userId) => {
@@ -72,5 +81,7 @@ export const revokeOtherSessions = async (userId) => {
       isCurrent: false
     }
   });
-  return { success: true };
+
+  const accessToken = await rotateSessionsAndIssueToken(userId);
+  return { success: true, accessToken };
 };

@@ -6,16 +6,38 @@ import { JWT_SECRET } from '../../config/secrets.js';
 import AppError from '../../utils/app-error.js';
 import { sendWelcomeEmail, sendPasswordResetEmail } from '../email/email.service.js';
 
-const generateToken = (userId) => {
+const generateToken = (userId, tokenVersion = 0) => {
   // Sessão infinita: o token NÃO expira (sem claim `exp`). O usuário só sai da conta
   // ao fazer logout manualmente, que apaga o token no dispositivo. Por isso não
   // passamos `expiresIn` — o JWT_EXPIRES_IN do ambiente é ignorado de propósito.
-  return jwt.sign({ id: userId }, JWT_SECRET);
+  //
+  // Como não há expiração, precisa existir uma forma de invalidar: o `tv` carrega
+  // a geração da sessão, conferida a cada requisição. Redefinir a senha ou
+  // encerrar as outras sessões incrementa esse número no banco e derruba na hora
+  // todos os tokens antigos.
+  return jwt.sign({ id: userId, tv: tokenVersion }, JWT_SECRET);
 };
 
 // OTP com gerador criptográfico. Math.random() é previsível: quem observa alguns
 // códigos consegue prever os próximos — e este código redefine senha.
 const gerarOtp = () => String(crypto.randomInt(100000, 1000000));
+
+/**
+ * Invalida todas as sessões do usuário e devolve um token novo para o aparelho
+ * que pediu a operação — que assim continua logado enquanto os outros caem.
+ *
+ * É o que faz "encerrar sessão" valer de verdade: apagar a linha do banco não
+ * tirava ninguém, porque o token do outro aparelho seguia sendo aceito.
+ */
+export const rotateSessionsAndIssueToken = async (userId) => {
+  const user = await User.findByPk(userId);
+  if (!user) {
+    throw new AppError('Usuário não encontrado.', 404, 'USER_NOT_FOUND');
+  }
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
+  await user.save();
+  return generateToken(user.id, user.tokenVersion);
+};
 
 export const registerUser = async ({ email, password, acceptedTerms, fullName, whatsapp }) => {
   // 0) Validar aceite de termos e LGPD
@@ -70,7 +92,7 @@ export const registerUser = async ({ email, password, acceptedTerms, fullName, w
     }
   });
 
-  const accessToken = generateToken(user.id);
+  const accessToken = generateToken(user.id, user.tokenVersion || 0);
 
   // Boas-vindas: dispara sem travar o cadastro. Se o e-mail falhar, o usuário já
   // está criado e autenticado — o erro fica só no log.
@@ -141,7 +163,7 @@ export const verifyUserOtp = async ({ email, otpCode }) => {
   const profile = await UserProfile.findOne({ where: { userId: user.id } });
 
   // 4) Gerar JWT
-  const token = generateToken(user.id);
+  const token = generateToken(user.id, user.tokenVersion || 0);
 
   return {
     access_token: token,
@@ -207,7 +229,7 @@ export const loginUser = async ({ email, password }) => {
   }
 
   // 4) Gerar token + status de onboarding
-  const token = generateToken(user.id);
+  const token = generateToken(user.id, user.tokenVersion || 0);
   const profile = await UserProfile.findOne({ where: { userId: user.id } });
 
   return {
@@ -289,6 +311,10 @@ export const resetPassword = async ({ email, otpCode, newPassword }) => {
   // Se a conta ainda não tinha e-mail verificado, redefinir a senha pelo código
   // enviado ao próprio e-mail já prova a posse dele.
   user.emailVerified = true;
+  // Derruba todas as sessões abertas. É o ponto central da redefinição de senha:
+  // quem redefine normalmente está reagindo a um acesso indevido, e sem isto o
+  // invasor continuava logado com o token antigo mesmo depois da troca.
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
   await user.save();
 
   // Consome o código e limpa os demais deste e-mail.

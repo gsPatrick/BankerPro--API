@@ -2,6 +2,7 @@ import { sequelize, User, UserProfile, Plan, Scenario, ProductKnowledge, SystemP
 import { getSettingValue } from '../../../utils/settings-resolver.js';
 import * as adminPlansService from '../services/admin-plans.service.js';
 import { PlanFeatureKeys } from '../../../config/constants.js';
+import { validarSql } from '../../../utils/sql-guard.js';
 import Anthropic from '@anthropic-ai/sdk';
 import bcrypt from 'bcryptjs';
 
@@ -239,8 +240,13 @@ Seja prestativo, eficiente e aja exatamente como um agente de execução (action
             executionLogs.push({ tool: name, input, success: true });
 
           } else if (name === 'execute_sql') {
-            console.log(`⚠️ Raw SQL Tool Executing: ${input.sql}`);
-            const [queryResult] = await sequelize.query(input.sql);
+            // Quem escreve este SQL é o modelo, e o prompt dele carrega dados que
+            // os próprios usuários cadastraram — ou seja, texto de terceiro pode
+            // influenciar o comando. O guard mantém leitura como padrão e barra
+            // instrução múltipla e comando destrutivo.
+            const sqlValidado = validarSql(input.sql);
+            console.log(`⚠️ Raw SQL Tool Executing: ${sqlValidado}`);
+            const [queryResult] = await sequelize.query(sqlValidado);
             resultData = JSON.stringify(queryResult);
             executionLogs.push({ tool: name, input, success: true });
           }

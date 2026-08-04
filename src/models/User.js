@@ -56,6 +56,16 @@ export default class User extends Model {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: false
+      },
+      // Geração da sessão. Vai dentro do token e é conferida a cada requisição:
+      // ao incrementar, todo token emitido antes deixa de valer na hora. É o que
+      // permite "encerrar as outras sessões" e, principalmente, expulsar de
+      // verdade quem já estava dentro quando a senha é redefinida — sem isto,
+      // trocar a senha não derrubava a sessão de um invasor.
+      tokenVersion: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
       }
     }, {
       sequelize,

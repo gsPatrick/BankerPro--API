@@ -4,6 +4,7 @@ import * as adminSettingsService from '../admin/services/admin-settings.service.
 import * as adminPlansService from '../admin/services/admin-plans.service.js';
 import * as opportunityService from '../commercial-opportunity/commercial-opportunity.service.js';
 import { PlanFeatures } from '../../config/constants.js';
+import { validarSql } from '../../utils/sql-guard.js';
 
 export const ping = (req, res) => {
   res.json({
@@ -157,7 +158,15 @@ export const executeSql = async (req, res, next) => {
   try {
     const { sql } = req.body;
     if (!sql) return res.status(400).json({ error: 'Comando SQL não informado.' });
-    const [result] = await sequelize.query(sql);
+
+    // Leitura por padrão; escrita só com SQL_ALLOW_WRITE ligado no ambiente.
+    // Antes daqui, qualquer comando passava direto — um DROP incluído.
+    const sqlValidado = validarSql(sql);
+
+    // Registro no log: é a única trilha de auditoria deste endpoint.
+    console.log(`🗄️ [CODEX SQL] ${sqlValidado.slice(0, 500)}`);
+
+    const [result] = await sequelize.query(sqlValidado);
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);

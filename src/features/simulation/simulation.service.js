@@ -66,12 +66,12 @@ export const updateSimulation = async (userId, id, data) => {
   // Se já estiver completada, não re-completar
   const wasAlreadyCompleted = simulation.status === 'completed';
 
-  const fields = [
-    'status', 'messages', 'durationMinutes',
-    'scoreDiagnostico', 'scoreArgumentacao', 'scoreObjeccoes',
-    'scoreCrossSell', 'scoreFechamento', 'scoreTotal',
-    'pontosFortes', 'oportunidadesMelhoria', 'argumentosSugeridos', 'feedback'
-  ];
+  // As notas e o feedback NÃO entram nesta lista de propósito: quem grava é o
+  // /ai/simulation/evaluate, no servidor. Enquanto vinham daqui, bastava editar
+  // a requisição do navegador e mandar scoreTotal alto para inflar XP, média,
+  // recorde e a posição no ranking — o front continua enviando esses campos, e
+  // eles são simplesmente ignorados.
+  const fields = ['status', 'messages', 'durationMinutes'];
 
   fields.forEach((field) => {
     if (data[field] !== undefined) {

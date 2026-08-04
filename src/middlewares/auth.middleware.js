@@ -48,6 +48,15 @@ export const requireAuth = catchAsync(async (req, res, next) => {
     return next(new AppError('Por favor, confirme seu e-mail antes de prosseguir.', 403, 'EMAIL_NOT_VERIFIED'));
   }
 
+  // 6) Conferir a geração da sessão. Como o token não expira, este é o único
+  // jeito de invalidá-lo: redefinir a senha ou encerrar as outras sessões
+  // incrementa o tokenVersion do usuário, e todo token emitido antes cai aqui.
+  // Antes disso, quem tivesse roubado uma sessão continuava dentro mesmo depois
+  // de a vítima trocar a senha.
+  if ((decoded.tv ?? 0) !== (currentUser.tokenVersion ?? 0)) {
+    return next(new AppError('Sua sessão foi encerrada. Faça login novamente.', 401, 'SESSION_REVOKED'));
+  }
+
   // Gravar usuário na requisição
   req.user = currentUser;
   next();
