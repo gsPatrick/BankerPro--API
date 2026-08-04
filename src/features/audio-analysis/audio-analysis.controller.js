@@ -3,6 +3,7 @@ import { enqueuePainelAnalysis } from '../../queues/audio.queue.js';
 import catchAsync from '../../utils/catch-async.js';
 import { sendSuccess, sendCreated } from '../../utils/api-response.js';
 import AppError from '../../utils/app-error.js';
+import { textoLimitado, blocoDeDados } from '../../utils/ai-input.js';
 
 export const createAnalysis = catchAsync(async (req, res, next) => {
   if (!req.file) {
@@ -11,7 +12,9 @@ export const createAnalysis = catchAsync(async (req, res, next) => {
 
   const duration = Number(req.body?.durationSeconds);
   const durationSeconds = Number.isFinite(duration) && duration > 0 ? Math.round(duration) : null;
-  const contexto = req.body?.contexto || null;
+  // Mesmo teto e mesma delimitação do Copiloto: é texto livre que vai parar
+  // dentro das instruções enviadas ao modelo.
+  const contexto = blocoDeDados('CONTEXTO_DA_NEGOCIACAO', textoLimitado(req.body?.contexto, 'contexto'));
 
   // Com a fila: cria a linha 'processing', enfileira e responde na hora — o
   // usuário não fica 30-90s esperando, e uma rajada de áudios não trava a API.

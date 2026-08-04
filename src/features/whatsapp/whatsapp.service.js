@@ -11,6 +11,10 @@ import * as audioAnalysisService from '../audio-analysis/audio-analysis.service.
 import { enqueueWhatsappAnalysis } from '../../queues/audio.queue.js';
 import AppError from '../../utils/app-error.js';
 
+// Teto de caracteres da mensagem que vira chamada de IA. Mensagem de WhatsApp
+// não passa por login nem pelos limites da API, então o freio precisa estar aqui.
+const LIMITE_TEXTO_WHATSAPP = 2000;
+
 export const getStatus = async (appUrl) => {
   const statusInfo = await wpProvider.getInstanceStatus();
 
@@ -352,6 +356,18 @@ export const handleIncomingWebhook = async (payload) => {
 
     if (!incomingText || incomingText.trim() === '') {
       return { success: true, reason: 'No text content' };
+    }
+
+    // Teto de tamanho também aqui. Este caminho é o mais barato de abusar: uma
+    // mensagem de WhatsApp não passa por login nem pelos limites da API, e cada
+    // uma dispara uma chamada paga ao modelo. Texto acima do teto é recusado com
+    // uma resposta curta, em vez de virar tokens.
+    if (incomingText.length > LIMITE_TEXTO_WHATSAPP) {
+      await wpProvider.sendMessage(
+        cleanSender,
+        'Sua mensagem ficou longa demais para eu analisar por aqui. Resuma o caso em poucas linhas e me mande de novo.'
+      );
+      return { success: true, reason: 'Text too long' };
     }
 
     console.log(`📩 Mensagem recebida no WhatsApp do Copiloto de ${cleanSender}: "${incomingText}"`);

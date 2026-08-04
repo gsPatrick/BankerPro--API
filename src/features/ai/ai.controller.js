@@ -2,13 +2,18 @@ import * as aiService from './ai.service.js';
 import catchAsync from '../../utils/catch-async.js';
 import { sendSuccess, sendCreated } from '../../utils/api-response.js';
 import AppError from '../../utils/app-error.js';
+import { textoLimitado } from '../../utils/ai-input.js';
 
 export const simulationChat = catchAsync(async (req, res, next) => {
-  const { simulationId, userMessage } = req.body;
+  const { simulationId } = req.body;
 
-  if (!simulationId || !userMessage) {
+  if (!simulationId) {
     return next(new AppError('simulationId e userMessage são obrigatórios.', 400, 'BAD_REQUEST'));
   }
+
+  // Teto de tamanho: cada caractere aqui é token pago, e a mensagem ainda volta
+  // no histórico de todas as chamadas seguintes da mesma simulação.
+  const userMessage = textoLimitado(req.body.userMessage, 'userMessage', { obrigatorio: true });
 
   const result = await aiService.simulationChat(req.user.id, { simulationId, userMessage });
   return sendSuccess(res, result, 'Resposta do cliente simulado.');
@@ -40,9 +45,9 @@ export const simulationExtractLearning = catchAsync(async (req, res, next) => {
 });
 
 export const copilotoAnalyze = catchAsync(async (req, res, next) => {
-  const { situationText } = req.body;
+  const situationText = textoLimitado(req.body.situationText, 'situationText');
 
-  if (!situationText || situationText.trim() === '') {
+  if (!situationText) {
     return next(new AppError('O relato da situação comercial (situationText) é obrigatório.', 400, 'BAD_REQUEST'));
   }
 
@@ -51,19 +56,20 @@ export const copilotoAnalyze = catchAsync(async (req, res, next) => {
 });
 
 export const approachGenerate = catchAsync(async (req, res, next) => {
-  const { clientAge, clientIncome, objective, product } = req.body;
+  const objective = textoLimitado(req.body.objective, 'objective');
+  const product = textoLimitado(req.body.product, 'product');
 
   if (!objective || !product) {
     return next(new AppError('objective e product são obrigatórios.', 400, 'BAD_REQUEST'));
   }
 
   const result = await aiService.approachGenerate({
-    clientAge,
-    clientIncome,
+    clientAge: textoLimitado(req.body.clientAge, 'clientAge'),
+    clientIncome: textoLimitado(req.body.clientIncome, 'clientIncome'),
     objective,
     product
   });
-  
+
   return sendSuccess(res, result, 'Roteiro de abordagem gerado com sucesso.');
 });
 
