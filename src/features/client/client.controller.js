@@ -4,7 +4,10 @@ import { sendSuccess, sendCreated, sendEmpty } from '../../utils/api-response.js
 import AppError from '../../utils/app-error.js';
 
 export const getClients = catchAsync(async (req, res, next) => {
-  const { status, search } = req.query;
+  const { status } = req.query;
+  // Teto no termo de busca: vira ILIKE '%termo%', que varre a tabela inteira.
+  // Uma string gigante repetida vira carga de CPU no banco de graça.
+  const search = String(req.query.search || '').slice(0, 120);
   const clients = await clientService.listClients(req.user.id, { status, search });
   return sendSuccess(res, clients, 'Lista de clientes da carteira.');
 });

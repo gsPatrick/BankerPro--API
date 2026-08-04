@@ -3,7 +3,8 @@ import catchAsync from '../../utils/catch-async.js';
 import { sendSuccess } from '../../utils/api-response.js';
 
 export const getScenarios = catchAsync(async (req, res, next) => {
-  const { category, difficulty, search } = req.query;
+  const { category, difficulty } = req.query;
+  const search = String(req.query.search || '').slice(0, 120);
   const scenarios = await scenarioService.listScenarios({ category, difficulty, search });
   return sendSuccess(res, scenarios, 'Lista de cenários comerciais.');
 });
