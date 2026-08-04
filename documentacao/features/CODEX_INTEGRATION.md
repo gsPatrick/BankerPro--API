@@ -27,7 +27,7 @@ Você pode enviar o token por dois métodos de cabeçalho:
    Authorization: Bearer seu_token_aqui
    ```
 
-*Nota: O token padrão de desenvolvimento é `codex_developer_secret_key_123456`.*
+*Nota: não existe token padrão. O valor vem da variável de ambiente `CODEX_TOKEN`; sem ela configurada, as rotas `/codex` respondem 404.*
 
 ---
 
@@ -614,7 +614,7 @@ Você pode inspecionar e alterar cenários, prompts, lista de oportunidades come
 
 Informações de conexão:
 - Base URL: https://bankerpro-bankerpro--api.wohb2u.easypanel.host/api/v1/codex
-- Header de Token: X-Codex-Token: codex_developer_secret_key_123456
+- Header de Token: X-Codex-Token: (valor da variável CODEX_TOKEN do ambiente — nunca versionar aqui)
 
 Recursos principais:
 - GET/POST /scenarios e PUT/DELETE /scenarios/:id
