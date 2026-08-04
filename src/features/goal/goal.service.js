@@ -38,10 +38,20 @@ export const listGoals = async (userId) => {
   return goals;
 };
 
+// O controller já monta um objeto com campos nomeados, mas a lista fica
+// explícita aqui também: assim, se alguém passar a repassar o req.body direto,
+// o dono do registro continua vindo do token e não do corpo da requisição.
+const CAMPOS_META = ['label', 'target', 'achieved'];
+
 export const createGoal = async (userId, data) => {
+  const permitidos = {};
+  CAMPOS_META.forEach((campo) => {
+    if (data[campo] !== undefined) permitidos[campo] = data[campo];
+  });
+
   const goal = await Goal.create({
+    ...permitidos,
     createdByUserId: userId,
-    ...data,
     periodMonth: currentPeriodMonth()
   });
   return goal;

@@ -24,10 +24,26 @@ export const listClients = async (userId, { status, search }) => {
   return clients;
 };
 
+// Mesmos campos que o update aceita. Criar precisa da mesma lista: o controller
+// entrega o req.body inteiro, e espalhá-lo sobre o objeto deixava o cliente
+// escolher QUALQUER coluna — inclusive o dono do registro.
+const CAMPOS_CLIENTE = [
+  'name', 'phone', 'whatsapp', 'objective', 'approximateIncome',
+  'offeredProduct', 'status', 'lastContact', 'nextReturn', 'notes'
+];
+
 export const createClient = async (userId, data) => {
+  const permitidos = {};
+  CAMPOS_CLIENTE.forEach((campo) => {
+    if (data[campo] !== undefined) permitidos[campo] = data[campo];
+  });
+
   const client = await Client.create({
-    createdByUserId: userId,
-    ...data
+    ...permitidos,
+    // Dono por último e sempre do token: com o spread depois, mandar
+    // "created_by_id" no corpo (que o conversor de chaves traduz para
+    // createdByUserId) fazia o registro nascer na carteira de outra pessoa.
+    createdByUserId: userId
   });
   return client;
 };

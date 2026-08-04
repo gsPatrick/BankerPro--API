@@ -53,8 +53,11 @@ export const createProfile = async (userId, data) => {
   }
 
   const profile = await UserProfile.create({
-    userId,
-    ...data
+    ...data,
+    // Depois do spread, e sempre do token. O controller já monta os campos um a
+    // um, mas a ordem aqui é o que garante que nenhum "user_id" vindo do corpo
+    // crie o perfil no nome de outra pessoa.
+    userId
   });
 
   return enrichWithUser(profile);
