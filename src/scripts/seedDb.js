@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import {
   sequelize,
@@ -39,10 +40,14 @@ async function seedDatabase() {
 
     // Criar usuário administrador padrão
     console.log('📥 Semeando usuário Administrador padrão...');
+    // Credenciais vêm do ambiente. Sem ADMIN_PASSWORD, sorteia uma senha forte e
+    // mostra uma única vez — nada de senha fixa em código de repositório público.
+    const adminEmail = (process.env.ADMIN_EMAIL || 'admin@admin.com').trim().toLowerCase();
+    const adminPassword = process.env.ADMIN_PASSWORD || crypto.randomBytes(12).toString('base64url');
     const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash('admin123', salt);
+    const passwordHash = await bcrypt.hash(adminPassword, salt);
     const adminUser = await User.create({
-      email: 'admin@admin.com',
+      email: adminEmail,
       passwordHash,
       role: 'admin',
       emailVerified: true,
@@ -54,7 +59,10 @@ async function seedDatabase() {
       experienceLevel: 'Especialista',
       bankName: 'Closer.IA'
     });
-    console.log('✅ Usuário administrador criado (admin@admin.com / admin123).');
+    console.log(`✅ Usuário administrador criado (${adminEmail}).`);
+    if (!process.env.ADMIN_PASSWORD) {
+      console.log(`🔐 Senha gerada (anote agora): ${adminPassword}`);
+    }
 
     // Inserir planos padrão
     console.log('📥 Semeando planos de assinatura (Plans)...');

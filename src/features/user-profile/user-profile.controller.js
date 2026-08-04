@@ -9,7 +9,16 @@ export const getProfile = catchAsync(async (req, res, next) => {
                    Object.keys(req.query).length > 0;
 
   if (isPlural) {
-    const list = await profileService.listProfiles(req.query);
+    // O formato de lista continua existindo (é o contrato antigo do front), mas
+    // agora é sempre escopado ao dono do token. Só admin enxerga a base toda.
+    // Antes, qualquer usuário logado — ou até `GET /profile?x=1`, que caía aqui
+    // pela regra de query acima — recebia o perfil de todo mundo: nome, banco,
+    // cargo, WhatsApp e progresso de cada usuário da plataforma.
+    const filtro = req.user.role === 'admin'
+      ? req.query
+      : { ...req.query, userId: req.user.id };
+
+    const list = await profileService.listProfiles(filtro);
     return sendSuccess(res, list, 'Lista de perfis de usuários.');
   }
 

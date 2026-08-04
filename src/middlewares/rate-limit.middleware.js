@@ -33,6 +33,59 @@ export const aiRateLimit = rateLimit({
   }
 });
 
+/**
+ * Autenticação: aqui o limite É segurança, não custo. Sem ele, /auth/login aceita
+ * milhares de tentativas de senha por minuto e /auth/reset-password aceita força
+ * bruta no OTP — que tem só 6 dígitos (1 milhão de combinações, minutos de
+ * trabalho para um script). Com 10 tentativas por minuto por IP+e-mail, o mesmo
+ * ataque levaria semanas.
+ *
+ * A chave inclui o e-mail alvo para que um NAT/operadora com muitos usuários
+ * legítimos não derrube todo mundo por causa de um só, e o IP para que trocar de
+ * e-mail a cada tentativa também não fure o limite.
+ */
+const chavePorIpEEmail = (req) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  return `${ipKeyGenerator(req.ip)}|${email}`;
+};
+
+export const authRateLimit = rateLimit({
+  windowMs: 60_000,
+  limit: parseInt(process.env.RATE_LIMIT_AUTH || '10', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: chavePorIpEEmail,
+  // Login certo não conta contra o limite: quem sabe a senha não é atacante.
+  skipSuccessfulRequests: true,
+  message: {
+    success: false,
+    error: {
+      message: 'Muitas tentativas. Aguarde um minuto e tente novamente.',
+      code: 'RATE_LIMITED'
+    }
+  }
+});
+
+/**
+ * Envio de código (cadastro, reenviar OTP, esqueci a senha): cada chamada dispara
+ * um e-mail. Teto baixo para não virar ferramenta de spam contra terceiros nem
+ * queimar a cota do provedor de e-mail.
+ */
+export const otpRequestRateLimit = rateLimit({
+  windowMs: 60 * 60_000,
+  limit: parseInt(process.env.RATE_LIMIT_OTP || '5', 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: chavePorIpEEmail,
+  message: {
+    success: false,
+    error: {
+      message: 'Muitas solicitações de código. Tente novamente mais tarde.',
+      code: 'RATE_LIMITED'
+    }
+  }
+});
+
 // Análise de áudio: cada uma custa transcrição + análise, então o teto é menor.
 export const audioRateLimit = rateLimit({
   windowMs: 60_000,

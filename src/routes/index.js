@@ -19,7 +19,7 @@ import whatsappRoutes from '../features/whatsapp/whatsapp.routes.js';
 import uploadRoutes from '../features/upload/upload.routes.js';
 import audioAnalysisRoutes from '../features/audio-analysis/audio-analysis.routes.js';
 import analyticsRoutes from '../features/analytics/analytics.routes.js';
-import { requireAuth } from '../middlewares/auth.middleware.js';
+import { requireAuth, requireRole } from '../middlewares/auth.middleware.js';
 import { aiRateLimit } from '../middlewares/rate-limit.middleware.js';
 import * as authController from '../features/auth/auth.controller.js';
 import * as aiController from '../features/ai/ai.controller.js';
@@ -28,8 +28,11 @@ const router = Router();
 
 // Montar sub-rotas com aliases de pluralização/singularidade para compatibilidade com o front
 router.use('/auth', authRoutes);
-router.get('/users', requireAuth, authController.getUsersList);
-router.get('/user', requireAuth, authController.getUsersList);
+// Listagem de usuários é dado pessoal (e-mail + nome de toda a base): só admin.
+// Antes bastava estar logado — qualquer conta recém-criada baixava a base inteira
+// de e-mails, o que é exposição de dados pessoais sob a LGPD.
+router.get('/users', requireAuth, requireRole('admin'), authController.getUsersList);
+router.get('/user', requireAuth, requireRole('admin'), authController.getUsersList);
 
 router.post('/integrations/core/invoke-llm', requireAuth, aiRateLimit, aiController.invokeLLM);
 router.post('/integrations/core/invoke_llm', requireAuth, aiRateLimit, aiController.invokeLLM);

@@ -40,7 +40,12 @@ export default (err, req, res, next) => {
       message: error.message || 'Internal Server Error',
       status: error.status || 'error',
       code: error.code,
-      stack: process.env.NODE_ENV === 'production' ? undefined : err.stack
+      // O stack trace nunca sai na resposta HTTP por padrão. Antes ele saía
+      // sempre que NODE_ENV != 'production' — e o servidor de produção roda com
+      // NODE_ENV=development, então caminhos de arquivo, versões e trechos de
+      // query iam para qualquer um que provocasse um erro. Para depurar,
+      // EXPOSE_ERROR_STACK=true; o log do console continua completo do mesmo jeito.
+      stack: process.env.EXPOSE_ERROR_STACK === 'true' ? err.stack : undefined
     }
   });
 };

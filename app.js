@@ -1,4 +1,5 @@
 import cluster from 'node:cluster';
+import crypto from 'node:crypto';
 import os from 'node:os';
 import express from 'express';
 import path from 'path';
@@ -40,26 +41,82 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const API_PREFIX = process.env.APP_API_PREFIX || '/api/v1';
 
+// Atrás do proxy do Easypanel, req.ip seria o IP do proxy para todo mundo — o
+// que faria os limites por IP tratarem todos os usuários como um só. Com o hop
+// declarado, o Express lê o IP real do X-Forwarded-For.
+app.set('trust proxy', 1);
+
 // Middlewares Globais
+// Extrai só o "esquema://host" de uma URL de configuração — é esse o formato que
+// o navegador manda no header Origin.
+const origemDe = (url) => {
+  try {
+    return new URL(String(url).trim()).origin;
+  } catch {
+    return null;
+  }
+};
+
+// Lista fechada de origens de navegador. Tudo que não estiver aqui é bloqueado —
+// não existe mais o "fallback para desenvolvimento" que liberava qualquer site.
 const allowedOrigins = [
+  // Front em produção.
+  'https://closeria.com.br',
+  'https://www.closeria.com.br',
+  // Desenvolvimento local.
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://bankerpro-bankerpro--front.wohb2u.easypanel.host'
-];
+  // O domínio do front já configurado para os links dos e-mails entra sozinho,
+  // para que uma troca de domínio não derrube o app por esquecimento aqui.
+  origemDe(process.env.APP_WEB_URL),
+  // Origens extras (ex.: voltar a usar a URL do Easypanel, subdomínio novo),
+  // separadas por vírgula em CORS_ORIGINS. É o único jeito de liberar algo novo.
+  ...(process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((o) => origemDe(o))
+].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
+    // Sem header Origin = não é chamada de navegador. É o caso do webhook da
+    // Z-API, do webhook do Mercado Pago, do agente Codex e de qualquer curl:
+    // CORS é uma regra que o NAVEGADOR aplica, então ela nem entra em jogo aqui.
+    // Quem protege esses caminhos é o token de cada um (instanceId da Z-API,
+    // CODEX_TOKEN, e a reconsulta do pagamento direto no Mercado Pago).
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || origin.endsWith('.easypanel.host')) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Fallback para desenvolvimento
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+
+    // Antes havia um "fallback para desenvolvimento" que liberava QUALQUER
+    // origem, inclusive em produção — ou seja, um site malicioso podia chamar a
+    // API com a sessão do visitante. Agora nega e registra: se um domínio
+    // legítimo aparecer neste log, basta adicioná-lo em CORS_ORIGINS.
+    console.warn(`🚫 CORS: origem não autorizada bloqueada: ${origin}`);
+    return callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Cabeçalhos de segurança básicos, sem dependência nova. Impedem que o navegador
+// "adivinhe" o tipo de um arquivo enviado por upload (um .jpg com conteúdo HTML
+// vira XSS no nosso domínio), que a aplicação seja embutida em iframe de terceiro
+// (clickjacking) e que a URL completa vaze no Referer para outros sites.
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  // Condicionado ao HTTPS real da requisição (via X-Forwarded-Proto do proxy) e
+  // não ao NODE_ENV: o servidor de produção pode estar rodando com
+  // NODE_ENV=development, e mesmo assim o tráfego é HTTPS e merece HSTS.
+  if (req.secure) {
+    res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+  }
+  next();
+});
 // Comprime as respostas (gzip): payloads menores, mais rápidos para o cliente e
 // menos banda gasta.
 app.use(compression());
@@ -161,23 +218,32 @@ async function bootDatabase() {
     if (userCount === 0) {
       console.log('🌱 Banco de dados vazio detectado. Realizando seed inicial...');
 
-      // Admin
+      // Admin. As credenciais vêm do ambiente; sem ADMIN_PASSWORD, sorteia uma
+      // senha forte e a imprime UMA vez no log do deploy. O par fixo
+      // "admin@admin.com / admin123" que existia aqui está publicado no
+      // repositório — era acesso administrativo aberto a quem lesse o código.
+      const adminEmail = (process.env.ADMIN_EMAIL || 'admin@admin.com').trim().toLowerCase();
+      const adminPassword = process.env.ADMIN_PASSWORD || crypto.randomBytes(12).toString('base64url');
       const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash('admin123', salt);
+      const passwordHash = await bcrypt.hash(adminPassword, salt);
       const adminUser = await User.create({
-        email: 'admin@admin.com',
+        email: adminEmail,
         passwordHash,
         role: 'admin',
         emailVerified: true,
         isActive: true
       });
+      if (!process.env.ADMIN_PASSWORD) {
+        console.log('  🔐 Senha do admin gerada automaticamente (anote agora, não será exibida de novo):');
+        console.log(`     ${adminEmail} / ${adminPassword}`);
+      }
       await UserProfile.create({
         userId: adminUser.id,
         roleTitle: 'Administrador Principal',
         experienceLevel: 'Especialista',
         bankName: 'Closer.IA'
       });
-      console.log('  ✅ Admin criado (admin@admin.com / admin123)');
+      console.log(`  ✅ Admin criado (${adminEmail})`);
 
       // Planos (sincronizados no boot acima)
 

@@ -5,7 +5,7 @@ import { cacheRead } from '../../utils/redis-cache.js';
 // a tabela por XP. Cachear 60s troca essa ordenação repetida por uma leitura
 // instantânea; um XP recém-ganho aparece no ranking em até 1 minuto, o que é
 // irrelevante para um placar.
-export const getRanking = async () =>
+const rankingBruto = async () =>
   cacheRead('ranking:top100', 60, async () => {
     const ranking = await UserProfile.findAll({
       include: [
@@ -29,3 +29,16 @@ export const getRanking = async () =>
       xpPoints: profile.xpPoints
     }));
   });
+
+/**
+ * Um placar precisa de nome, não de e-mail. Cada um vê o próprio e-mail (o front
+ * usa para destacar "você" na lista); o dos outros sai da resposta — senão
+ * qualquer usuário coleta o e-mail dos 100 primeiros só abrindo a tela.
+ */
+export const getRanking = async (requestingUserId) => {
+  const ranking = await rankingBruto();
+  return ranking.map((entry) => ({
+    ...entry,
+    userEmail: entry.userId === requestingUserId ? entry.userEmail : null
+  }));
+};

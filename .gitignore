@@ -1,5 +1,11 @@
 node_modules/
+# Qualquer variação de .env fica de fora: o repositório é público, e um
+# ".env.backup" ou ".env.producao" esquecido vaza todas as chaves de uma vez.
+# A exceção é o .env.example, que só tem placeholders.
 .env
+.env.*
+!.env.example
 .DS_Store
 *.log
 tmp/
+uploads/

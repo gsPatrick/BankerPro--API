@@ -1,6 +1,8 @@
+import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User, EmailOtp, UserProfile } from '../../models/index.js';
+import { JWT_SECRET } from '../../config/secrets.js';
 import AppError from '../../utils/app-error.js';
 import { sendWelcomeEmail, sendPasswordResetEmail } from '../email/email.service.js';
 
@@ -8,11 +10,12 @@ const generateToken = (userId) => {
   // Sessão infinita: o token NÃO expira (sem claim `exp`). O usuário só sai da conta
   // ao fazer logout manualmente, que apaga o token no dispositivo. Por isso não
   // passamos `expiresIn` — o JWT_EXPIRES_IN do ambiente é ignorado de propósito.
-  return jwt.sign(
-    { id: userId },
-    process.env.JWT_SECRET || 'super_secret_jwt_key_bankerpro_change_me_in_production'
-  );
+  return jwt.sign({ id: userId }, JWT_SECRET);
 };
+
+// OTP com gerador criptográfico. Math.random() é previsível: quem observa alguns
+// códigos consegue prever os próximos — e este código redefine senha.
+const gerarOtp = () => String(crypto.randomInt(100000, 1000000));
 
 export const registerUser = async ({ email, password, acceptedTerms, fullName, whatsapp }) => {
   // 0) Validar aceite de termos e LGPD
@@ -161,7 +164,7 @@ export const resendUserOtp = async (email) => {
   await EmailOtp.update({ used: true }, { where: { email, used: false } });
 
   // 3) Gerar novo OTP
-  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const otpCode = gerarOtp();
   const expiresAt = new Date(Date.now() + 10 * 60000);
 
   await EmailOtp.create({
@@ -231,7 +234,7 @@ export const requestPasswordReset = async (email) => {
   // Invalida OTPs anteriores deste e-mail antes de gerar o novo.
   await EmailOtp.update({ used: true }, { where: { email, used: false } });
 
-  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const otpCode = gerarOtp();
   const expiresMinutes = 10;
   const expiresAt = new Date(Date.now() + expiresMinutes * 60000);
 

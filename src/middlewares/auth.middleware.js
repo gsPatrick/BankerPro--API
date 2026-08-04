@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
 import { User, UserProfile, Subscription } from '../models/index.js';
+import { JWT_SECRET } from '../config/secrets.js';
 import AppError from '../utils/app-error.js';
 import catchAsync from '../utils/catch-async.js';
 
@@ -17,7 +18,7 @@ export const requireAuth = catchAsync(async (req, res, next) => {
   }
 
   // 2) Validar token
-  const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_jwt_key_bankerpro_change_me_in_production');
+  const decoded = jwt.verify(token, JWT_SECRET);
 
   // 3) Verificar se o usuário ainda existe
   const currentUser = await User.findByPk(decoded.id, {
