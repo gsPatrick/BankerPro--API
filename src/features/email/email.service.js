@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Resend } from 'resend';
-import { renderWelcomeEmail, renderPasswordResetEmail } from './email.templates.js';
+import { renderWelcomeEmail, renderPasswordResetEmail, renderEmailVerificationEmail } from './email.templates.js';
 
 /**
  * Envio de e-mail transacional via Resend.
@@ -78,5 +78,10 @@ export const sendWelcomeEmail = async ({ to, fullName }) => {
 
 export const sendPasswordResetEmail = async ({ to, fullName, code, expiresMinutes = 10 }) => {
   const { subject, html, text } = renderPasswordResetEmail({ fullName, code, expiresMinutes, heroSrc });
+  return enviar({ to, subject, html, text, attachments: heroAttachments });
+};
+
+export const sendEmailVerificationEmail = async ({ to, fullName, code, expiresMinutes = 10 }) => {
+  const { subject, html, text } = renderEmailVerificationEmail({ fullName, code, expiresMinutes, heroSrc });
   return enviar({ to, subject, html, text, attachments: heroAttachments });
 };

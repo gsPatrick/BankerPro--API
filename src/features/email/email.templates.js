@@ -311,3 +311,65 @@ export const renderPasswordResetEmail = ({ fullName, code, expiresMinutes = 10, 
 
   return { subject: `${code} é o seu código de redefinição · Closer.IA`, html, text };
 };
+
+/**
+ * E-mail de confirmação do cadastro com código OTP.
+ *
+ * Existe porque a conta passou a nascer NÃO verificada: sem provar a posse do
+ * e-mail, qualquer pessoa cadastrava usando o endereço de outra e disparava
+ * mensagens em nome do domínio.
+ */
+export const renderEmailVerificationEmail = ({ fullName, code, expiresMinutes = 10, assetBaseUrl, heroSrc } = {}) => {
+  const base = (assetBaseUrl || ASSET_BASE_DEFAULT).replace(/\/+$/, '');
+  const bannerImg = heroSrc || `${base}/welcome-hero.jpg`;
+  const nome = primeiroNome(fullName);
+  const ola = nome ? `Olá, ${nome}.` : 'Olá.';
+  const codeSpaced = String(code || '').split('').join('&nbsp;');
+
+  const contentHtml = `
+    ${kicker('Confirmação de e-mail')}
+    <h1 style="margin:0 0 16px;font-family:${BRAND.fontDisplay};font-size:27px;font-weight:800;color:${BRAND.textPrimary};line-height:33px;letter-spacing:-0.6px;">Confirme seu e-mail</h1>
+    <p style="margin:0 0 28px;font-family:${BRAND.fontBody};font-size:15px;color:${BRAND.textSecondary};line-height:24px;">
+      ${ola} Falta um passo para ativar sua conta no Closer.IA. Use o código abaixo na tela de confirmação.
+    </p>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">
+      <tr>
+        <td align="center" style="background:${BRAND.cardRaised};border:1px solid ${BRAND.borderStrong};border-radius:16px;padding:30px 16px;">
+          <div style="font-family:${BRAND.fontDisplay};font-size:42px;font-weight:800;letter-spacing:12px;color:${BRAND.textPrimary};line-height:1;">${codeSpaced}</div>
+        </td>
+      </tr>
+    </table>
+
+    <p style="margin:0 0 28px;font-family:${BRAND.fontBody};font-size:13px;color:${BRAND.textTertiary};line-height:20px;text-align:center;">
+      Válido por <span style="color:${BRAND.silverMuted};font-weight:600;">${expiresMinutes} minutos</span>.
+    </p>
+
+    <div style="height:1px;background:${BRAND.border};margin:0 0 20px;"></div>
+
+    <p style="margin:0;font-family:${BRAND.fontBody};font-size:13px;color:${BRAND.textTertiary};line-height:20px;">
+      Se não foi você que criou esta conta, ignore este e-mail: sem o código, nada é ativado e o endereço não fica vinculado a ninguém. Nunca compartilhe este código.
+    </p>`;
+
+  const html = baseLayout({
+    title: 'Confirme seu e-mail · Closer.IA',
+    previewText: `Seu código de confirmação é ${code}. Válido por ${expiresMinutes} minutos.`,
+    bannerImg,
+    contentHtml
+  });
+
+  const text = [
+    ola,
+    '',
+    'Falta um passo para ativar sua conta no Closer.IA.',
+    '',
+    `Código de confirmação: ${code}`,
+    `Válido por ${expiresMinutes} minutos.`,
+    '',
+    'Se não foi você que criou esta conta, ignore este e-mail.',
+    `Dúvidas? ${SUPPORT_EMAIL}`,
+    '— Closer.IA'
+  ].join('\n');
+
+  return { subject: `${code} é o seu código de confirmação · Closer.IA`, html, text };
+};

@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { User, EmailOtp, UserProfile } from '../../models/index.js';
 import { JWT_SECRET } from '../../config/secrets.js';
 import AppError from '../../utils/app-error.js';
-import { sendWelcomeEmail, sendPasswordResetEmail } from '../email/email.service.js';
+import { sendWelcomeEmail, sendPasswordResetEmail, sendEmailVerificationEmail } from '../email/email.service.js';
 
 const generateToken = (userId, tokenVersion = 0) => {
   // Sessão infinita: o token NÃO expira (sem claim `exp`). O usuário só sai da conta
@@ -39,6 +39,39 @@ export const rotateSessionsAndIssueToken = async (userId) => {
   return generateToken(user.id, user.tokenVersion);
 };
 
+/**
+ * Gera o código, grava e envia por e-mail. Usado no cadastro novo e no
+ * recadastro de uma conta que nunca foi confirmada.
+ */
+const enviarCodigoDeConfirmacao = async (user) => {
+  const expiresMinutes = 10;
+  const otpCode = gerarOtp();
+
+  await EmailOtp.create({
+    email: user.email,
+    otpCode,
+    expiresAt: new Date(Date.now() + expiresMinutes * 60000),
+    used: false
+  });
+
+  sendEmailVerificationEmail({
+    to: user.email,
+    fullName: user.fullName,
+    code: otpCode,
+    expiresMinutes
+  }).catch((err) => {
+    console.error('Falha ao enviar e-mail de confirmação:', err?.message || err);
+  });
+
+  return {
+    id: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    requiresVerification: true,
+    expiresMinutes
+  };
+};
+
 export const registerUser = async ({ email, password, acceptedTerms, fullName, whatsapp }) => {
   // 0) Validar aceite de termos e LGPD
   if (acceptedTerms !== true && acceptedTerms !== 'true') {
@@ -54,20 +87,39 @@ export const registerUser = async ({ email, password, acceptedTerms, fullName, w
 
   // 1) Verificar se o e-mail já existe
   const existingUser = await User.findOne({ where: { email } });
-  if (existingUser) {
+  if (existingUser && existingUser.emailVerified) {
     throw new AppError('Este e-mail já está cadastrado.', 409, 'EMAIL_EXISTS');
+  }
+
+  // Conta criada mas nunca confirmada não pertence a ninguém — quem tem a caixa
+  // de e-mail é que decide. Sem isto, bastaria alguém se cadastrar com o
+  // endereço de outra pessoa para impedir que ela criasse conta para sempre
+  // (o e-mail é único). Reaproveita o registro e manda um código novo.
+  if (existingUser && !existingUser.emailVerified) {
+    const salt = await bcrypt.genSalt(10);
+    existingUser.passwordHash = await bcrypt.hash(password, salt);
+    existingUser.fullName = fullName ?? existingUser.fullName;
+    existingUser.acceptedTermsAt = new Date();
+    await existingUser.save();
+
+    await EmailOtp.update({ used: true }, { where: { email, used: false } });
+    return await enviarCodigoDeConfirmacao(existingUser);
   }
 
   // 2) Hashing da senha
   const salt = await bcrypt.genSalt(10);
   const passwordHash = await bcrypt.hash(password, salt);
 
-  // 3) Criar usuário (Auto-verificado temporariamente)
+  // 3) Criar usuário. A conta nasce NÃO verificada: antes ela já vinha com
+  // emailVerified true, então qualquer pessoa se cadastrava com o endereço de
+  // outra, recebia acesso na hora e ainda fazia a plataforma disparar e-mail em
+  // nome do domínio para uma caixa que nunca pediu nada. O código enviado abaixo
+  // é o que prova a posse do endereço.
   const user = await User.create({
     email,
     passwordHash,
     role: 'user',
-    emailVerified: true,
+    emailVerified: false,
     acceptedTermsAt: new Date(),
     fullName,
     whatsapp
@@ -92,22 +144,9 @@ export const registerUser = async ({ email, password, acceptedTerms, fullName, w
     }
   });
 
-  const accessToken = generateToken(user.id, user.tokenVersion || 0);
-
-  // Boas-vindas: dispara sem travar o cadastro. Se o e-mail falhar, o usuário já
-  // está criado e autenticado — o erro fica só no log.
-  sendWelcomeEmail({ to: user.email, fullName: user.fullName }).catch((err) => {
-    console.error('Falha ao enviar e-mail de boas-vindas:', err?.message || err);
-  });
-
-  return {
-    id: user.id,
-    email: user.email,
-    fullName: user.fullName,
-    role: user.role,
-    onboardingCompleted: false,
-    accessToken
-  };
+  // 4) Enviar o código de confirmação. Nenhum token é emitido aqui: sem provar a
+  // posse do e-mail, não há sessão.
+  return await enviarCodigoDeConfirmacao(user);
 };
 
 export const verifyUserOtp = async ({ email, otpCode }) => {
@@ -141,6 +180,12 @@ export const verifyUserOtp = async ({ email, otpCode }) => {
 
   user.emailVerified = true;
   await user.save();
+
+  // Boas-vindas só agora: antes saía no cadastro, ou seja, uma caixa de e-mail
+  // alheia recebia a mensagem sem que ninguém tivesse confirmado nada.
+  sendWelcomeEmail({ to: user.email, fullName: user.fullName }).catch((err) => {
+    console.error('Falha ao enviar e-mail de boas-vindas:', err?.message || err);
+  });
 
   // 3.5) Perfil base — onboarding preenche os dados reais depois
   await UserProfile.findOrCreate({
@@ -202,6 +247,17 @@ export const resendUserOtp = async (email) => {
     otpCode,
     expiresAt,
     used: false
+  });
+
+  // Reenvia de verdade pelo e-mail — antes o código só era impresso no console,
+  // o que deixava a confirmação impossível de concluir em produção.
+  sendEmailVerificationEmail({
+    to: user.email,
+    fullName: user.fullName,
+    code: otpCode,
+    expiresMinutes: 10
+  }).catch((err) => {
+    console.error('Falha ao reenviar e-mail de confirmação:', err?.message || err);
   });
 
   // O código NÃO vai para o log fora de desenvolvimento. Quem tiver acesso aos
