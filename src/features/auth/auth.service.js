@@ -216,10 +216,18 @@ export const resendUserOtp = async (email) => {
   return respostaGenerica;
 };
 
+// Hash descartável, usado só para gastar o mesmo tempo de CPU quando o e-mail
+// não existe. Sem isto, a resposta volta na hora para e-mail sem conta e demora
+// ~100ms quando a conta existe (custo do bcrypt) — diferença suficiente para
+// varrer uma lista e descobrir quem é cliente, mesmo com a mensagem de erro
+// sendo idêntica nos dois casos.
+const HASH_DUMMY = bcrypt.hashSync('senha-inexistente-para-igualar-o-tempo', 10);
+
 export const loginUser = async ({ email, password }) => {
   // 1) Encontrar usuário
   const user = await User.findOne({ where: { email } });
   if (!user) {
+    await bcrypt.compare(String(password || ''), HASH_DUMMY);
     throw new AppError('E-mail ou senha inválidos.', 401, 'INVALID_CREDENTIALS');
   }
 

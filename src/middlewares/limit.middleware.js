@@ -4,6 +4,7 @@ import { getPlanByKey } from '../utils/plan-cache.js';
 import { getPlanFeatureLabel } from '../config/constants.js';
 import AppError from '../utils/app-error.js';
 import catchAsync from '../utils/catch-async.js';
+import { adquirirTrava } from '../utils/request-lock.js';
 
 /**
  * Funcionalidades cujo uso já vira um registro próprio: contamos a tabela real
@@ -60,6 +61,21 @@ export const enforceLimit = (featureKey) =>
         'LIMIT_EXCEEDED'
       ));
     }
+
+    // Serializa as chamadas do mesmo usuário nesta funcionalidade. Sem isto, dez
+    // requisições simultâneas leem o mesmo contador antigo e passam todas — o
+    // limite do plano vira sugestão. A trava cai sozinha por TTL, e é liberada
+    // ao fim da resposta.
+    const liberarTrava = await adquirirTrava(`limite:${req.user.id}:${featureKey}`);
+    if (!liberarTrava) {
+      return next(new AppError(
+        'Uma ação sua ainda está sendo processada. Aguarde um instante e tente novamente.',
+        429,
+        'ACTION_IN_PROGRESS'
+      ));
+    }
+    res.on('finish', () => { liberarTrava(); });
+    res.on('close', () => { liberarTrava(); });
 
     const windowDays = Number(plan?.durationDays) > 0 ? Number(plan.durationDays) : 30;
     const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
